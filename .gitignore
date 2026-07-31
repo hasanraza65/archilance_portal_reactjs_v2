@@ -24,4 +24,4 @@ dist-ssr
 *.sw?
 
 # Local env - copy .env.example to .env
-.env
+config.bat
