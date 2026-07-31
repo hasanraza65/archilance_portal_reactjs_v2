@@ -1,0 +1,187 @@
+import React from "react";
+import {
+  PlusCircle, ChevronDown, ChevronLeft, ChevronRight, ChevronUp,
+  Bell, BellOff, Building2, Calendar, CalendarCheck2, Camera, CreditCard,
+  MessageCircle, CheckCircle2, CheckCheck, ListChecks, Clock, XCircle, Code2,
+  Compass, Cpu, AlertTriangle, FilePlus2, FileText, ChevronsDown, ChevronsLeft,
+  ChevronsRight, ChevronsUp, EyeOff, Eye, Flame, Flag, Folder, FolderX, FolderOpen,
+  TrendingUp, Menu, Home, Inbox, Link2, LogOut, Sparkles, Search, Award,
+  MoreHorizontal, Moon, MoonStar, Palette, Send, Paperclip, Pencil, SendHorizontal,
+  PlayCircle, RefreshCw, Reply, RotateCcw, ShieldCheck, ExternalLink, Smile, Sun,
+  Trash2, SlidersHorizontal, UserPlus, Users, UsersRound, Wallet, LayoutGrid,
+  LayoutDashboard, Loader2, Plus, X, Check,
+  Pause, Mic, Bot, Zap, Activity, Keyboard, MousePointerClick, Monitor,
+  BarChart3, Target, CalendarDays, Timer, Gauge, Briefcase, FileSignature,
+  UserCheck, Star, Hourglass, ArrowUpRight, ListFilter, SquareCheckBig,
+  Download, Mail, MailCheck, Settings, KeyRound, Archive, History,
+  MonitorDown, PartyPopper, ArrowLeft, MessagesSquare,
+} from "lucide-react";
+
+// Drop-in replacement for the old @iconify/react-backed Icon: every call site
+// still passes an "iconify-style" string (e.g. "solar:bell-bold-duotone"), but
+// it's resolved to a bundled lucide-react component here — zero network
+// dependency, so icons never flicker/fail to load. See the Icon Migration
+// note in the design system: extend this map instead of adding new icon
+// name strings elsewhere.
+const ICON_MAP = {
+  "solar:add-circle-bold": PlusCircle,
+  "solar:add-circle-linear": PlusCircle,
+  "solar:archive-linear": Archive,
+  "solar:arrow-left-linear": ArrowLeft,
+  "solar:download-minimalistic-bold": Download,
+  "solar:download-minimalistic-linear": Download,
+  "solar:monitor-smartphone-bold-duotone": MonitorDown,
+  "solar:history-bold-duotone": History,
+  "solar:letter-bold-duotone": Mail,
+  "solar:letter-linear": Mail,
+  "solar:letter-opened-linear": MailCheck,
+  "solar:chat-square-bold-duotone": MessagesSquare,
+  "solar:confetti-bold-duotone": PartyPopper,
+  "solar:lock-password-bold-duotone": KeyRound,
+  "solar:settings-linear": Settings,
+  "solar:settings-bold-duotone": Settings,
+  "solar:alt-arrow-down-linear": ChevronDown,
+  "solar:alt-arrow-left-linear": ChevronLeft,
+  "solar:alt-arrow-right-bold": ChevronRight,
+  "solar:alt-arrow-right-linear": ChevronRight,
+  "solar:alt-arrow-up-linear": ChevronUp,
+  "solar:bell-bold-duotone": Bell,
+  "solar:bell-linear": Bell,
+  "solar:bell-off-linear": BellOff,
+  "solar:buildings-2-bold-duotone": Building2,
+  "solar:buildings-2-linear": Building2,
+  "solar:calendar-linear": Calendar,
+  "solar:calendar-mark-bold-duotone": CalendarCheck2,
+  "solar:calendar-mark-linear": CalendarCheck2,
+  "solar:camera-bold": Camera,
+  "solar:card-bold-duotone": CreditCard,
+  "solar:chat-round-dots-bold-duotone": MessageCircle,
+  "solar:chat-round-dots-linear": MessageCircle,
+  "solar:check-circle-bold": CheckCircle2,
+  "solar:check-circle-bold-duotone": CheckCircle2,
+  "solar:check-read-linear": CheckCheck,
+  "solar:checklist-minimalistic-bold-duotone": ListChecks,
+  "solar:checklist-minimalistic-linear": ListChecks,
+  "solar:clock-circle-bold-duotone": Clock,
+  "solar:clock-circle-linear": Clock,
+  "solar:close-circle-bold": XCircle,
+  "solar:close-circle-linear": XCircle,
+  "solar:code-square-bold-duotone": Code2,
+  "solar:compass-broken": Compass,
+  "solar:cpu-bolt-bold-duotone": Cpu,
+  "solar:danger-triangle-bold": AlertTriangle,
+  "solar:document-add-linear": FilePlus2,
+  "solar:document-linear": FileText,
+  "solar:document-text-bold-duotone": FileText,
+  "solar:document-text-linear": FileText,
+  "solar:double-alt-arrow-down-bold": ChevronsDown,
+  "solar:double-alt-arrow-left-linear": ChevronsLeft,
+  "solar:double-alt-arrow-right-bold": ChevronsRight,
+  "solar:double-alt-arrow-right-linear": ChevronsRight,
+  "solar:double-alt-arrow-up-bold": ChevronsUp,
+  "solar:eye-closed-linear": EyeOff,
+  "solar:eye-linear": Eye,
+  "solar:fire-bold": Flame,
+  "solar:fire-bold-duotone": Flame,
+  "solar:flag-linear": Flag,
+  "solar:folder-bold-duotone": Folder,
+  "solar:folder-error-linear": FolderX,
+  "solar:folder-open-linear": FolderOpen,
+  "solar:graph-up-bold-duotone": TrendingUp,
+  "solar:hamburger-menu-linear": Menu,
+  "solar:home-2-bold": Home,
+  "solar:inbox-in-linear": Inbox,
+  "solar:inbox-linear": Inbox,
+  "solar:link-linear": Link2,
+  "solar:logout-3-bold-duotone": LogOut,
+  "solar:magic-stick-3-bold-duotone": Sparkles,
+  "solar:magnifer-linear": Search,
+  "solar:medal-ribbons-star-bold-duotone": Award,
+  "solar:menu-dots-bold": MoreHorizontal,
+  "solar:moon-sleep-bold-duotone": Moon,
+  "solar:moon-stars-bold-duotone": MoonStar,
+  "solar:pallete-2-bold-duotone": Palette,
+  "solar:paper-plane-bold": Send,
+  "solar:paperclip-linear": Paperclip,
+  "solar:pen-linear": Pencil,
+  "solar:plain-2-bold": SendHorizontal,
+  "solar:play-circle-bold": PlayCircle,
+  "solar:play-circle-bold-duotone": PlayCircle,
+  "solar:refresh-bold": RefreshCw,
+  "solar:refresh-linear": RefreshCw,
+  "solar:reply-linear": Reply,
+  "solar:restart-linear": RotateCcw,
+  "solar:shield-user-bold-duotone": ShieldCheck,
+  "solar:shield-user-linear": ShieldCheck,
+  "solar:square-top-down-linear": ExternalLink,
+  "solar:sticker-smile-circle-linear": Smile,
+  "solar:sun-bold-duotone": Sun,
+  "solar:trash-bin-trash-bold": Trash2,
+  "solar:trash-bin-trash-linear": Trash2,
+  "solar:tuning-2-linear": SlidersHorizontal,
+  "solar:user-circle-bold-duotone": Users,
+  "solar:user-plus-bold": UserPlus,
+  "solar:user-plus-linear": UserPlus,
+  "solar:users-group-rounded-bold-duotone": Users,
+  "solar:users-group-rounded-linear": Users,
+  "solar:users-group-two-rounded-bold-duotone": UsersRound,
+  "solar:wallet-money-bold-duotone": Wallet,
+  "solar:wallet-money-linear": Wallet,
+  "solar:widget-3-linear": LayoutGrid,
+  "solar:widget-4-linear": LayoutGrid,
+  "solar:widget-5-bold-duotone": LayoutDashboard,
+  "solar:widget-linear": LayoutGrid,
+  // Card brand marks — lucide has no brand logos, so these fall back to a
+  // plain card glyph (call sites also render the brand as text, e.g. "Visa").
+  "logos:visa": CreditCard,
+  "logos:mastercard": CreditCard,
+  "logos:amex": CreditCard,
+  "svg-spinners:180-ring": Loader2,
+
+  // Voice notes, assistant, dashboard & activity-log additions
+  "solar:pause-bold": Pause,
+  "solar:microphone-bold": Mic,
+  "solar:microphone-linear": Mic,
+  "solar:chat-square-code-bold-duotone": Bot,
+  "solar:bolt-bold-duotone": Zap,
+  "solar:pulse-bold-duotone": Activity,
+  "solar:keyboard-bold-duotone": Keyboard,
+  "solar:cursor-bold-duotone": MousePointerClick,
+  "solar:monitor-bold-duotone": Monitor,
+  "solar:chart-square-bold-duotone": BarChart3,
+  "solar:target-bold-duotone": Target,
+  "solar:calendar-date-bold-duotone": CalendarDays,
+  "solar:stopwatch-bold-duotone": Timer,
+  "solar:speedometer-max-bold-duotone": Gauge,
+  "solar:case-round-bold-duotone": Briefcase,
+  "solar:file-check-bold-duotone": FileSignature,
+  "solar:user-check-bold-duotone": UserCheck,
+  "solar:star-bold-duotone": Star,
+  "solar:hourglass-bold-duotone": Hourglass,
+  "solar:arrow-right-up-linear": ArrowUpRight,
+  "solar:filter-linear": ListFilter,
+  "solar:check-square-bold-duotone": SquareCheckBig,
+};
+
+const FALLBACK = Check;
+
+const Icon = ({ icon, className = "", width, style, ...rest }) => {
+  const Cmp = ICON_MAP[icon] || FALLBACK;
+  const isSpinner = icon === "svg-spinners:180-ring";
+  // Every call site sizes icons via a `text-[Npx]` className (font-size),
+  // matching how the old Iconify-backed Icon rendered at 1em×1em by default.
+  // Lucide's own default is a fixed 24px width/height attribute, which would
+  // ignore those classes entirely — so unless a literal `width` is passed,
+  // size from the inherited font-size instead.
+  const sizeStyle = width ? { width, height: width } : { width: "1em", height: "1em" };
+  return (
+    <Cmp
+      className={`${className} ${isSpinner ? "animate-spin" : ""} inline-block shrink-0 align-[-0.125em]`}
+      style={{ ...sizeStyle, ...style }}
+      strokeWidth={2}
+      {...rest}
+    />
+  );
+};
+
+export default Icon;
