@@ -1,12 +1,12 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import Icon from "@/components/ui/Icon";
 import Menu from "@/components/ui/Menu";
 import IconButton from "@/components/ui/IconButton";
 import AudioPlayer from "@/components/ui/AudioPlayer";
+import MessageContextMenu from "./MessageContextMenu";
 import { getAttachmentUrl } from "@/api/media";
+import { QUICK_REACTIONS } from "../constants";
 import { cn } from "@/lib/cn";
-
-const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 
 const isVoiceNote = (a) =>
   /^audio\//i.test(a?.file_type || "") ||
@@ -19,10 +19,12 @@ const timeOnly = (v) => {
     : "";
 };
 
-const MessageBubble = ({ message, isOwn, grouped = false, onEdit, onDelete, onReply, onReact, onUnreact, currentUserId }) => {
+const MessageBubble = ({ message, isOwn, grouped = false, onEdit, onDelete, onReply, onForward, onReact, onUnreact, currentUserId }) => {
   const [showReactions, setShowReactions] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(message.message);
+  const [menu, setMenu] = useState(null); // {x, y} while the context menu is open
+  const longPressRef = useRef(null);
 
   const myReaction = (message.reactions || []).find((r) => r.user_id === currentUserId);
 
@@ -31,8 +33,28 @@ const MessageBubble = ({ message, isOwn, grouped = false, onEdit, onDelete, onRe
     if (draft.trim() && draft !== message.message) onEdit(message.id, draft.trim());
   };
 
+  // Right-click on desktop, long-press on touch — same trigger v1 used.
+  const openMenuAt = (x, y) => {
+    if (message.__pending) return;
+    setMenu({ x, y });
+  };
+  const handleContextMenu = (e) => {
+    e.preventDefault();
+    openMenuAt(e.clientX, e.clientY);
+  };
+  const handleTouchStart = (e) => {
+    const touch = e.touches?.[0];
+    if (!touch) return;
+    longPressRef.current = setTimeout(() => openMenuAt(touch.clientX, touch.clientY), 500);
+  };
+  const clearLongPress = () => clearTimeout(longPressRef.current);
+
   return (
     <div
+      onContextMenu={handleContextMenu}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={clearLongPress}
+      onTouchMove={clearLongPress}
       className={cn(
         "group flex gap-2 max-w-[85%] sm:max-w-[80%]",
         isOwn ? "ml-auto flex-row-reverse" : "",
@@ -138,16 +160,36 @@ const MessageBubble = ({ message, isOwn, grouped = false, onEdit, onDelete, onRe
           )}
         </div>
         <IconButton icon="solar:reply-linear" size="xs" label="Reply" onClick={() => onReply(message)} />
-        {isOwn && (
-          <Menu
-            trigger={<IconButton icon="solar:menu-dots-bold" size="xs" label="More" />}
-            items={[
-              { label: "Edit", icon: "solar:pen-linear", onClick: () => setEditing(true) },
-              { label: "Delete", icon: "solar:trash-bin-trash-linear", danger: true, onClick: () => onDelete(message.id) },
-            ]}
-          />
-        )}
+        <Menu
+          trigger={<IconButton icon="solar:menu-dots-bold" size="xs" label="More" />}
+          items={[
+            { label: "Forward", icon: "solar:forward-linear", onClick: () => onForward(message) },
+            ...(isOwn
+              ? [
+                  message.message && { label: "Edit", icon: "solar:pen-linear", onClick: () => setEditing(true) },
+                  { label: "Delete", icon: "solar:trash-bin-trash-linear", danger: true, onClick: () => onDelete(message.id) },
+                ].filter(Boolean)
+              : []),
+          ]}
+        />
       </div>
+
+      {menu && (
+        <MessageContextMenu
+          x={menu.x}
+          y={menu.y}
+          message={message}
+          isOwn={isOwn}
+          currentUserId={currentUserId}
+          onClose={() => setMenu(null)}
+          onReply={() => { onReply(message); setMenu(null); }}
+          onForward={() => { onForward(message); setMenu(null); }}
+          onEdit={() => { setEditing(true); setMenu(null); }}
+          onDelete={() => { onDelete(message.id); setMenu(null); }}
+          onReact={(emoji) => { onReact(message.id, emoji); setMenu(null); }}
+          onUnreact={() => { onUnreact(message.id); setMenu(null); }}
+        />
+      )}
     </div>
   );
 };
