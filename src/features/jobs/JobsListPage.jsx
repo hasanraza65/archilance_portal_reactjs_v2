@@ -12,6 +12,7 @@ import KanbanBoard from "./components/KanbanBoard";
 import CalendarView from "./components/CalendarView";
 import TableView from "./components/TableView";
 import MembersView from "./components/MembersView";
+import ProjectsView from "./components/ProjectsView";
 import { STATUS_OPTIONS } from "@/lib/statusMeta";
 import { useAuth } from "@/auth/AuthContext";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -22,15 +23,39 @@ const BASE_VIEWS = [
   { key: "board", label: "Board", icon: "solar:widget-4-linear" },
   { key: "calendar", label: "Calendar", icon: "solar:calendar-linear" },
   { key: "table", label: "Table", icon: "solar:widget-linear" },
+  { key: "projects", label: "Projects", icon: "solar:documents-linear" },
 ];
 
 // Members View is a cross-project, per-employee breakdown — the backend gates
 // it to admin/manager/supervisor/executive, so the tab only shows for them.
 const MEMBERS_VIEW_ROLES = ["admin", "manager", "supervisor", "executive"];
 
+// Views backed by the `jobs` query (grouped-by-job data). The Upwork /
+// Assigned-to-me toggles below only affect this query — Members and Projects
+// read their own cross-job queries, matching v1 where those two toggles live
+// only on the "Jobs" tab (pages/app/projects/index.jsx), not on "Projects"
+// (the cross-job task list, which has its own separate "Assigned to me").
+const JOB_BACKED_VIEWS = ["list", "board", "calendar", "table"];
+
+// v1's "Upwork Projects" toggle (index.jsx `isAuthorizedForTabs`) filters jobs
+// down to customer_id 52 — Upwork's fixed customer record on the backend.
+const UPWORK_CUSTOMER_ID = 52;
+const UPWORK_TOGGLE_ROLES = ["admin", "manager", "supervisor", "executive"];
+
+// v1's "Assigned to me" toggle on the Jobs tab (index.jsx `isAssignableUser`)
+// — deliberately narrower than the Upwork list (no admin).
+const ASSIGNED_ME_JOBS_ROLES = ["manager", "supervisor", "executive"];
+
 const JobsListPage = () => {
   const { user } = useAuth();
-  const { data: jobs, isLoading } = useJobs({ assignedMe: user?.role === "manager" });
+  const [assignedMe, setAssignedMe] = useState(false);
+  const [upworkOnly, setUpworkOnly] = useState(false);
+  const canToggleUpwork = UPWORK_TOGGLE_ROLES.includes(user?.role);
+  const canToggleAssignedMe = ASSIGNED_ME_JOBS_ROLES.includes(user?.role);
+  const { data: jobs, isLoading } = useJobs({
+    assignedMe: canToggleAssignedMe && assignedMe,
+    customerId: canToggleUpwork && upworkOnly ? UPWORK_CUSTOMER_ID : undefined,
+  });
   const canSeeMembers = MEMBERS_VIEW_ROLES.includes(user?.role);
   const VIEWS = canSeeMembers
     ? [...BASE_VIEWS, { key: "members", label: "Members", icon: "solar:users-group-rounded-linear" }]
@@ -81,7 +106,7 @@ const JobsListPage = () => {
         title="Jobs"
         subtitle={jobs ? `${jobs.length} job${jobs.length === 1 ? "" : "s"}` : undefined}
         actions={
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
             <div className="relative w-full sm:w-auto">
               <Icon icon="solar:magnifer-linear" className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-tertiary)] text-[15px]" />
               <input
@@ -91,6 +116,26 @@ const JobsListPage = () => {
                 className="pl-9 pr-3 h-10 sm:h-9 w-full sm:w-56 text-[16px] sm:text-sm rounded-lg border border-[var(--line-subtle)] bg-[var(--surface-raised)] focus:outline-none focus:ring-2 focus:ring-primary-500/30"
               />
             </div>
+            {JOB_BACKED_VIEWS.includes(view) && canToggleUpwork && (
+              <Button
+                variant={upworkOnly ? "primary" : "secondary"}
+                size="sm"
+                className="flex-none whitespace-nowrap"
+                onClick={() => setUpworkOnly((v) => !v)}
+              >
+                Upwork Projects
+              </Button>
+            )}
+            {JOB_BACKED_VIEWS.includes(view) && canToggleAssignedMe && (
+              <Button
+                variant={assignedMe ? "primary" : "secondary"}
+                size="sm"
+                className="flex-none whitespace-nowrap"
+                onClick={() => setAssignedMe((v) => !v)}
+              >
+                Assigned to me
+              </Button>
+            )}
             {canCreateJob && (
               <Button icon="solar:add-circle-bold" className="flex-none whitespace-nowrap" onClick={() => setJobFormOpen(true)}>New Job</Button>
             )}
@@ -120,6 +165,10 @@ const JobsListPage = () => {
           // Members View reads its own cross-project query — it doesn't depend
           // on `jobs`, so it must bypass the jobs loading/empty gate below.
           <MembersView onOpenTask={setOpenTaskId} />
+        ) : view === "projects" ? (
+          // Projects View (v1's cross-job task list) also reads its own query,
+          // independent of `jobs` — same reason as Members View above.
+          <ProjectsView onOpenTask={setOpenTaskId} />
         ) : isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => <div key={i} className="skeleton h-16 rounded-2xl" />)}

@@ -121,3 +121,47 @@ export async function updateProjectAssignees(role, projectId, employeeIds) {
   });
   return res.data;
 }
+
+/**
+ * Flattens one API row from `/projects-with-tasks` into a single task row.
+ *
+ * The backend returns `{ project, task, sub_task? }` per row: `task` is always
+ * the root task for context (title/id, plus its full `sub_tasks` for the
+ * expand affordance), and `sub_task` is present only when the matched row is
+ * actually a subtask — in which case `sub_task` (not `task`) is the row to
+ * render, matching v1's TaskList.jsx `formatTaskItem` exactly.
+ */
+function normalizeCrossJobTaskRow(item) {
+  const task = item.sub_task || item.task;
+  return {
+    ...task,
+    id: task.id,
+    projectId: item.project?.id ?? null,
+    projectName: item.project?.project_name || null,
+    parentTaskId: item.task?.id ?? null,
+    parentTaskTitle: item.task?.task_title || null,
+    isSubtask: Boolean(item.sub_task),
+    subTasks: item.task?.sub_tasks || [],
+  };
+}
+
+/**
+ * Cross-job flat task list ("Projects" tab in Jobs — v1's TaskList.jsx).
+ * Fetched one status bucket at a time via `task_status` + `page`, exactly
+ * like v1: the backend groups jobs into one flat, paginated task stream
+ * rather than nesting them under each job.
+ */
+export async function fetchProjectsWithTasks(role, { status, page = 1, assignedMe } = {}) {
+  const params = { page };
+  if (status) params.task_status = status;
+  if (assignedMe) params.assigned_me = 1;
+  const res = await apiClient.get(ep(role, "/projects-with-tasks"), { params });
+  const payload = res.data;
+  const rawItems = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
+  return {
+    items: rawItems.map(normalizeCrossJobTaskRow),
+    total: payload?.total ?? rawItems.length,
+    currentPage: payload?.current_page ?? page,
+    lastPage: payload?.last_page ?? 1,
+  };
+}
