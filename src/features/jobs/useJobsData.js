@@ -1,7 +1,7 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   fetchProjects, fetchProject, fetchJobRootTasks, fetchTaskChildren,
-  fetchProjectsWithMembers, updateJob, updateJobStatus, createJob, deleteJob,
+  fetchProjectsWithMembers, fetchProjectsWithTasks, updateJob, updateJobStatus, createJob, deleteJob,
 } from "@/api/projects";
 import { createTask, updateTaskField, deleteTask, setTaskAssignees, updateTaskAttachments } from "@/api/tasks";
 import { useAuth } from "@/auth/AuthContext";
@@ -49,6 +49,22 @@ export function useProjectsWithMembers(enabled = true) {
     staleTime: 2 * 60_000,
     gcTime: 10 * 60_000,
     placeholderData: (prev) => prev,
+  });
+}
+
+/**
+ * One status bucket of the cross-job "Projects" task list (v1's TaskList.jsx),
+ * paginated. Fetched lazily — a status section only queries once it's expanded
+ * — and `assignedMe` resets pagination back to page 1 via the query key.
+ */
+export function useProjectsWithTasksPage(status, { assignedMe, enabled = true } = {}) {
+  const { user } = useAuth();
+  return useInfiniteQuery({
+    queryKey: ["projects-with-tasks", user?.role, status, assignedMe],
+    queryFn: ({ pageParam }) => fetchProjectsWithTasks(user.role, { status, page: pageParam, assignedMe }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => (lastPage.currentPage < lastPage.lastPage ? lastPage.currentPage + 1 : undefined),
+    enabled: Boolean(user) && Boolean(status) && enabled,
   });
 }
 
@@ -156,10 +172,11 @@ export function useUpdateTaskField() {
       qc.invalidateQueries({ queryKey: ["task-children"] });
       qc.invalidateQueries({ queryKey: ["job-detail"] });
       qc.invalidateQueries({ queryKey: ["task-detail"] });
-      // Members View reads a separate, deeply-nested query (tasks grouped by
-      // employee then status) that isn't worth optimistically patching —
-      // just refetch it so an edit made there (or elsewhere) stays correct.
+      // Members View and Projects View each read their own separate,
+      // deeply-nested query that isn't worth optimistically patching —
+      // just refetch them so an edit made there (or elsewhere) stays correct.
       qc.invalidateQueries({ queryKey: ["projects-with-members"] });
+      qc.invalidateQueries({ queryKey: ["projects-with-tasks"] });
     },
   });
 }
@@ -177,6 +194,7 @@ export function useCreateTask() {
       // inside the open panel wouldn't appear until the panel was reopened.
       qc.invalidateQueries({ queryKey: ["task-detail"] });
       qc.invalidateQueries({ queryKey: ["projects-with-members"] });
+      qc.invalidateQueries({ queryKey: ["projects-with-tasks"] });
     },
   });
 }
@@ -191,6 +209,7 @@ export function useDeleteTask() {
       qc.invalidateQueries({ queryKey: ["task-children"] });
       qc.invalidateQueries({ queryKey: ["task-detail"] });
       qc.invalidateQueries({ queryKey: ["projects-with-members"] });
+      qc.invalidateQueries({ queryKey: ["projects-with-tasks"] });
     },
   });
 }
@@ -240,6 +259,7 @@ export function useSetTaskAssignees() {
       qc.invalidateQueries({ queryKey: ["task-children"] });
       qc.invalidateQueries({ queryKey: ["task-detail"] });
       qc.invalidateQueries({ queryKey: ["projects-with-members"] });
+      qc.invalidateQueries({ queryKey: ["projects-with-tasks"] });
     },
   });
 }
