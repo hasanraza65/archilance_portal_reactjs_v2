@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   fetchChatContacts, fetchConversation, fetchConversationPage, sendChatMessage,
   updateChatMessage, deleteChatMessage, markConversationRead, reactToChatMessage, removeChatReaction,
 } from "@/api/chat";
 import { useAuth } from "@/auth/AuthContext";
 import { getSocket } from "@/api/socket";
+import { getAttachmentUrl } from "@/api/media";
 
 export function useChatContacts() {
   const { user } = useAuth();
@@ -172,4 +173,48 @@ export function useConversation(contactId) {
     react,
     unreact,
   };
+}
+
+/**
+ * There's no "forward by reference" endpoint on the backend (v1 doesn't have
+ * one either) — a forward is just another `/api/chat/send` call to a
+ * different receiver. Attachments are re-fetched from their existing URL and
+ * re-uploaded as a fresh File since the send endpoint only accepts uploads.
+ */
+async function resolveForwardAttachments(message) {
+  if (!message?.attachments?.length) return [];
+  const files = await Promise.all(
+    message.attachments.map(async (a) => {
+      try {
+        const res = await fetch(getAttachmentUrl(a.file_path, a.created_at));
+        const blob = await res.blob();
+        return new File([blob], a.file_name || "attachment", { type: blob.type || a.mime_type || "application/octet-stream" });
+      } catch {
+        return null; // best-effort — drop attachments that fail to re-fetch rather than blocking the whole forward
+      }
+    })
+  );
+  return files.filter(Boolean);
+}
+
+/** Forward one message's text + attachments to one or more contacts. */
+export function useForwardMessage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ message, contactIds }) => {
+      const attachments = await resolveForwardAttachments(message);
+      const sent = await Promise.all(
+        contactIds.map(async (id) => {
+          const res = await sendChatMessage({ message: message.message || "", receiverId: id, attachments });
+          getSocket().emit("chat-message", { ...res.data?.chat, receiver_id: id });
+          return id;
+        })
+      );
+      return sent;
+    },
+    onSuccess: (contactIds) => {
+      contactIds.forEach((id) => qc.invalidateQueries({ queryKey: ["chat-conversation", id] }));
+      qc.invalidateQueries({ queryKey: ["chat-contacts"] });
+    },
+  });
 }

@@ -15,6 +15,7 @@ import {
   UserCheck, Star, Hourglass, ArrowUpRight, ListFilter, SquareCheckBig,
   Download, Mail, MailCheck, Settings, KeyRound, Archive, History,
   MonitorDown, PartyPopper, ArrowLeft, MessagesSquare,
+  Forward, Copy, Info,
 } from "lucide-react";
 
 // Drop-in replacement for the old @iconify/react-backed Icon: every call site
@@ -87,6 +88,9 @@ const ICON_MAP = {
   "solar:folder-bold-duotone": Folder,
   "solar:folder-error-linear": FolderX,
   "solar:folder-open-linear": FolderOpen,
+  "solar:forward-linear": Forward,
+  "solar:copy-linear": Copy,
+  "solar:info-circle-linear": Info,
   "solar:graph-up-bold-duotone": TrendingUp,
   "solar:hamburger-menu-linear": Menu,
   "solar:home-2-bold": Home,

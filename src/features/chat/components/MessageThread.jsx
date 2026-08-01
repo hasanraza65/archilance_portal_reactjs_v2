@@ -5,9 +5,13 @@ import Icon from "@/components/ui/Icon";
 import Spinner from "@/components/ui/Spinner";
 import EmptyState from "@/components/ui/EmptyState";
 import VoiceRecorderBar from "@/components/ui/VoiceRecorderBar";
+import Modal from "@/components/ui/Modal";
 import MessageBubble from "./MessageBubble";
+import ForwardMessageModal from "./ForwardMessageModal";
+import ChatInfoPanel from "./ChatInfoPanel";
 import { useConversation } from "../useChatData";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
+import { useIsDesktop } from "@/hooks/useMediaQuery";
 import { getMediaUrl } from "@/api/media";
 import { useAuth } from "@/auth/AuthContext";
 import { toast } from "@/lib/toast";
@@ -36,10 +40,16 @@ const MessageThread = ({ contact, onBack }) => {
   const { messages, loading, sending, hasMore, loadMore, send, edit, remove, react, unreact } = useConversation(contact?.id);
   const [text, setText] = useState("");
   const [replyTo, setReplyTo] = useState(null);
+  const [forwardMessage, setForwardMessage] = useState(null);
+  const [infoOpen, setInfoOpen] = useState(false);
   const fileRef = useRef(null);
   const [file, setFile] = useState(null);
   const scrollRef = useRef(null);
   const voice = useVoiceRecorder();
+  const isDesktop = useIsDesktop();
+
+  // The info panel is per-contact — switching conversations should close it.
+  useEffect(() => setInfoOpen(false), [contact?.id]);
 
   // Keep the newest message in view as the thread grows / conversation changes.
   useEffect(() => {
@@ -85,7 +95,8 @@ const MessageThread = ({ contact, onBack }) => {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full min-h-0">
+      <div className="flex flex-col h-full min-w-0 flex-1">
       {/* Sticky conversation header — the one thing that must never scroll away. */}
       <div className="flex items-center gap-2 px-2 sm:px-4 h-14 flex-none border-b border-[var(--line-subtle)] bg-[var(--surface-raised)]">
         {onBack && (
@@ -96,6 +107,12 @@ const MessageThread = ({ contact, onBack }) => {
           <p className="font-semibold text-sm text-[var(--ink-primary)] truncate">{contact.name}</p>
           {contact.email && <p className="text-[11px] text-[var(--ink-tertiary)] truncate">{contact.email}</p>}
         </div>
+        <IconButton
+          icon="solar:info-circle-linear"
+          label="Contact info"
+          active={infoOpen}
+          onClick={() => setInfoOpen((v) => !v)}
+        />
       </div>
 
       <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 py-3 sm:py-4 space-y-1.5">
@@ -139,6 +156,7 @@ const MessageThread = ({ contact, onBack }) => {
                   onEdit={edit}
                   onDelete={remove}
                   onReply={setReplyTo}
+                  onForward={setForwardMessage}
                   onReact={react}
                   onUnreact={unreact}
                 />
@@ -184,6 +202,22 @@ const MessageThread = ({ contact, onBack }) => {
           </form>
         )}
       </div>
+    </div>
+
+      {/* Desktop: a docked side panel. Mobile/tablet: a bottom-sheet modal
+          (there's no room for a third column below lg). */}
+      {isDesktop && infoOpen && (
+        <div className="w-72 flex-none h-full min-h-0 border-l border-[var(--line-subtle)]">
+          <ChatInfoPanel contact={contact} messages={messages} onClose={() => setInfoOpen(false)} />
+        </div>
+      )}
+      {!isDesktop && (
+        <Modal open={infoOpen} onClose={() => setInfoOpen(false)} title="Contact info" className="max-w-sm">
+          <ChatInfoPanel contact={contact} messages={messages} embedded />
+        </Modal>
+      )}
+
+      <ForwardMessageModal open={Boolean(forwardMessage)} message={forwardMessage} onClose={() => setForwardMessage(null)} />
     </div>
   );
 };
