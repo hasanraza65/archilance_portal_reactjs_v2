@@ -27,7 +27,10 @@ const KEY_SEEN_TOUR = "archilance.uiTourSeen";
  * further - nothing else needs changing, and every entry point (the first-run
  * chooser, the header button, and the sticky preference) reads from here.
  */
-const SWITCH_ROLES = ["admin", "manager"];
+const SWITCH_ROLES = [
+  "admin", "employee", "manager", "outsource", "supervisor", "executive",
+  "internee", "customer", "member",
+];
 
 export function canUseVersionSwitch(role) {
   return SWITCH_ROLES.includes(String(role || "").toLowerCase());
