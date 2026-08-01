@@ -25,3 +25,4 @@ dist-ssr
 
 # Local env - copy .env.example to .env
 .env
+/docs
