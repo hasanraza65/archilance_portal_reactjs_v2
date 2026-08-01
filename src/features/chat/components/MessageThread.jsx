@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Avatar from "@/components/ui/Avatar";
 import IconButton from "@/components/ui/IconButton";
 import Icon from "@/components/ui/Icon";
@@ -51,11 +51,75 @@ const MessageThread = ({ contact, onBack }) => {
   // The info panel is per-contact — switching conversations should close it.
   useEffect(() => setInfoOpen(false), [contact?.id]);
 
-  // Keep the newest message in view as the thread grows / conversation changes.
-  useEffect(() => {
+  /* ----------------------------- scrolling -----------------------------
+   * Newest message lives at the BOTTOM, and the thread opens there.
+   *
+   * Three distinct cases, which is why this isn't a one-liner:
+   *  1. opening a conversation      -> jump to the bottom, no animation
+   *  2. loading earlier messages    -> the thread grows UPWARDS, so hold the
+   *     message the user was reading in place instead of throwing them to the
+   *     bottom of a thread they were deliberately scrolling up through
+   *  3. a new message arrives       -> follow it only if they were already at
+   *     the bottom; if they're up reading history, don't yank them away
+   */
+  const atBottomRef = useRef(true);
+  const growAnchorRef = useRef(null);   // distance from bottom, held across a "load earlier"
+  const lastContactRef = useRef(null);
+  const lastCountRef = useRef(0);
+
+  // Within this many px of the bottom still counts as "following the chat".
+  const NEAR_BOTTOM_PX = 120;
+
+  const handleScroll = () => {
     const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (el) atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight <= NEAR_BOTTOM_PX;
+  };
+
+  const scrollToBottom = (el) => {
+    el.scrollTop = el.scrollHeight;
+    // Attachments and voice notes settle after paint and make the thread
+    // taller; re-pin on the next frame so we land on the true bottom.
+    requestAnimationFrame(() => { if (atBottomRef.current) el.scrollTop = el.scrollHeight; });
+  };
+
+  // Layout effect, not effect: position is corrected before the browser paints,
+  // so there's no visible jump.
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    if (lastContactRef.current !== contact?.id) {          // 1. opened a conversation
+      lastContactRef.current = contact?.id;
+      lastCountRef.current = messages.length;
+      atBottomRef.current = true;
+      scrollToBottom(el);
+      return;
+    }
+
+    if (growAnchorRef.current != null) {                    // 2. prepended older messages
+      el.scrollTop = el.scrollHeight - growAnchorRef.current;
+      growAnchorRef.current = null;
+      lastCountRef.current = messages.length;
+      return;
+    }
+
+    if (messages.length !== lastCountRef.current) {         // 3. new message at the bottom
+      lastCountRef.current = messages.length;
+      if (atBottomRef.current) scrollToBottom(el);
+    }
   }, [messages.length, contact?.id]);
+
+  const handleLoadMore = async () => {
+    const el = scrollRef.current;
+    // Remember how far from the BOTTOM we are; that distance is unchanged by
+    // messages being added above, so it restores the exact reading position.
+    growAnchorRef.current = el ? el.scrollHeight - el.scrollTop : null;
+    try {
+      await loadMore();
+    } catch {
+      growAnchorRef.current = null;
+    }
+  };
 
   const submit = async (e) => {
     e?.preventDefault();
@@ -115,9 +179,9 @@ const MessageThread = ({ contact, onBack }) => {
         />
       </div>
 
-      <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 py-3 sm:py-4 space-y-1.5">
+      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 py-3 sm:py-4 space-y-1.5">
         {hasMore && (
-          <button onClick={loadMore} className="block mx-auto text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline mb-2">
+          <button onClick={handleLoadMore} className="block mx-auto text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline mb-2">
             Load earlier messages
           </button>
         )}

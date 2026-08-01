@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useMemo, useState } from "react";
 import PageHeader from "@/components/layout/PageHeader";
 import Menu from "@/components/ui/Menu";
 import IconButton from "@/components/ui/IconButton";
@@ -12,7 +12,7 @@ import DiaryFilterBar from "./components/DiaryFilterBar";
 import ManualTimeModal from "./components/ManualTimeModal";
 import { aggregateWindowsActivity } from "@/lib/productivity";
 import { DEFAULT_RANGE_KEY, resolveRange, rangeLabel } from "./dateRanges";
-import { exportNodeToPdf } from "./exportPdf";
+import { exportWorkDiaryPdf } from "./exportPdf";
 import { useAuth } from "@/auth/AuthContext";
 import { toast } from "@/lib/toast";
 
@@ -24,7 +24,7 @@ const WorkDiaryPage = () => {
   const [taskId, setTaskId] = useState(null);
   const [manualOpen, setManualOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const exportRef = useRef(null);
+  const [progress, setProgress] = useState(null);
 
   const [startDate, endDate] = resolveRange(rangeKey, customRange);
 
@@ -45,18 +45,46 @@ const WorkDiaryPage = () => {
 
   const handleExport = async () => {
     setExporting(true);
+    setProgress(null);
     try {
-      await exportNodeToPdf(
-        exportRef.current,
-        `work-diary-${user?.name?.replace(/\s+/g, "-").toLowerCase() || "me"}-${startDate}.pdf`
+      const result = await exportWorkDiaryPdf({
+        heading: "Work Diary",
+        meta: [
+          ["Employee", user?.name],
+          ["Email", user?.email],
+          ["Period", rangeLabel(rangeKey, customRange)],
+        ],
+        stats: {
+          workedSeconds: overallTotalSeconds,
+          idleSeconds,
+          productiveSeconds: agg.productiveSeconds,
+          productivePercent: agg.productivePercent,
+        },
+        apps: agg.apps,
+        sessions,
+        fileName: `work-diary-${user?.name?.replace(/\s+/g, "-").toLowerCase() || "me"}-${startDate}.pdf`,
+        onProgress: (loaded, total) => setProgress(total ? { loaded, total } : null),
+      });
+      toast.success(
+        result.screenshotsOmitted > 0
+          ? `PDF exported — ${result.screenshotsIncluded} screenshots included, ${result.screenshotsOmitted} omitted.`
+          : "PDF exported."
       );
-      toast.success("PDF exported.");
     } catch (err) {
       toast.error(err?.message || "Couldn't export the PDF.");
     } finally {
       setExporting(false);
+      setProgress(null);
     }
   };
+
+  // A wide range downloads hundreds of screenshots, so a plain spinner looks
+  // like it has hung. Show how far along it actually is.
+  const exportLabel = progress?.total
+    ? `Exporting ${Math.round((progress.loaded / progress.total) * 100)}%`
+    : exporting
+      ? "Exporting…"
+      : "Export PDF";
 
   return (
     <div className="pb-10">
@@ -74,9 +102,9 @@ const WorkDiaryPage = () => {
               icon="solar:document-text-linear"
               isLoading={exporting}
               onClick={handleExport}
-              disabled={sessions.length === 0}
+              disabled={sessions.length === 0 || exporting}
             >
-              Export PDF
+              {exportLabel}
             </Button>
           </div>
         }
@@ -86,7 +114,7 @@ const WorkDiaryPage = () => {
             items={[
               { label: "Manual time", icon: "solar:add-circle-linear", onClick: () => setManualOpen(true) },
               {
-                label: exporting ? "Exporting…" : "Export PDF",
+                label: exportLabel,
                 icon: "solar:document-text-linear",
                 disabled: sessions.length === 0 || exporting,
                 onClick: handleExport,
@@ -108,9 +136,9 @@ const WorkDiaryPage = () => {
           onTaskId={setTaskId}
         />
 
-        {/* Everything inside this ref is what lands in the PDF. */}
-        <div ref={exportRef} className="space-y-5 bg-[var(--surface-app)]">
-          <div className="hidden print:block" />
+        {/* The PDF is built from the session data, not from this markup — see
+            exportPdf.js for why. */}
+        <div className="space-y-5 bg-[var(--surface-app)]">
           <StatTiles
             workedSeconds={overallTotalSeconds}
             idleSeconds={idleSeconds}

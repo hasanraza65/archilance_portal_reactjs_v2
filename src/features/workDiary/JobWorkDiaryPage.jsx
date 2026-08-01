@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import PageHeader from "@/components/layout/PageHeader";
 import Button from "@/components/ui/Button";
@@ -13,7 +13,7 @@ import { useMyWorkSessions, idleSecondsForSession } from "./useWorkDiaryData";
 import { aggregateWindowsActivity } from "@/lib/productivity";
 import { useJobDetail } from "@/features/jobs/useJobsData";
 import { useAuth } from "@/auth/AuthContext";
-import { exportNodeToPdf } from "./exportPdf";
+import { exportWorkDiaryPdf } from "./exportPdf";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/cn";
 
@@ -34,7 +34,7 @@ const JobWorkDiaryPage = () => {
   const [rangeKey, setRangeKey] = useState(DEFAULT_RANGE_KEY);
   const [customRange, setCustomRange] = useState(null);
   const [exporting, setExporting] = useState(false);
-  const exportRef = useRef(null);
+  const [progress, setProgress] = useState(null);
 
   const [startDate, endDate] = resolveRange(rangeKey, customRange);
 
@@ -53,16 +53,45 @@ const JobWorkDiaryPage = () => {
 
   const handleExport = async () => {
     setExporting(true);
+    setProgress(null);
     try {
       const slug = (job?.project_name || "job").replace(/\s+/g, "-").toLowerCase();
-      await exportNodeToPdf(exportRef.current, `work-diary-${slug}-${startDate}.pdf`);
-      toast.success("PDF exported.");
+      const result = await exportWorkDiaryPdf({
+        heading: "Work Diary",
+        meta: [
+          ["Job", job?.project_name],
+          ["Customer", job?.customer?.name],
+          ["Period", rangeLabel(rangeKey, customRange)],
+        ],
+        stats: {
+          workedSeconds: overallTotalSeconds,
+          idleSeconds,
+          productiveSeconds: agg.productiveSeconds,
+          productivePercent: agg.productivePercent,
+        },
+        apps: agg.apps,
+        sessions,
+        fileName: `work-diary-${slug}-${startDate}.pdf`,
+        onProgress: (loaded, total) => setProgress(total ? { loaded, total } : null),
+      });
+      toast.success(
+        result.screenshotsOmitted > 0
+          ? `PDF exported — ${result.screenshotsIncluded} screenshots included, ${result.screenshotsOmitted} omitted.`
+          : "PDF exported."
+      );
     } catch (err) {
       toast.error(err?.message || "Couldn't build the PDF.");
     } finally {
       setExporting(false);
+      setProgress(null);
     }
   };
+
+  const exportLabel = progress?.total
+    ? `Exporting ${Math.round((progress.loaded / progress.total) * 100)}%`
+    : exporting
+      ? "Exporting…"
+      : "Export PDF";
 
   return (
     <div className="pb-10">
@@ -79,9 +108,9 @@ const JobWorkDiaryPage = () => {
               icon="solar:document-text-linear"
               isLoading={exporting}
               onClick={handleExport}
-              disabled={sessions.length === 0}
+              disabled={sessions.length === 0 || exporting}
             >
-              Export PDF
+              {exportLabel}
             </Button>
           </div>
         }
@@ -125,7 +154,7 @@ const JobWorkDiaryPage = () => {
           )}
         </div>
 
-        <div ref={exportRef} className="space-y-5 bg-[var(--surface-app)]">
+        <div className="space-y-5 bg-[var(--surface-app)]">
           <StatTiles
             workedSeconds={overallTotalSeconds}
             idleSeconds={idleSeconds}

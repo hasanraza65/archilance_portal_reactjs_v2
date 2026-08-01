@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import SearchSelect from "@/components/ui/SearchSelect";
 import PageHeader from "@/components/layout/PageHeader";
@@ -15,7 +15,7 @@ import SessionDayGroups from "./components/SessionDayGroups";
 import DiaryFilterBar from "./components/DiaryFilterBar";
 import { aggregateWindowsActivity } from "@/lib/productivity";
 import { DEFAULT_RANGE_KEY, resolveRange, rangeLabel } from "./dateRanges";
-import { exportNodeToPdf } from "./exportPdf";
+import { exportWorkDiaryPdf } from "./exportPdf";
 import { getMediaUrl } from "@/api/media";
 import { toast } from "@/lib/toast";
 
@@ -29,7 +29,7 @@ const EmployeeWorkDiaryPage = () => {
   const [jobId, setJobId] = useState(null);
   const [taskId, setTaskId] = useState(null);
   const [exporting, setExporting] = useState(false);
-  const exportRef = useRef(null);
+  const [progress, setProgress] = useState(null);
 
   const [startDate, endDate] = resolveRange(rangeKey, customRange);
 
@@ -52,18 +52,48 @@ const EmployeeWorkDiaryPage = () => {
 
   const handleExport = async () => {
     setExporting(true);
+    setProgress(null);
     try {
-      await exportNodeToPdf(
-        exportRef.current,
-        `work-diary-${employee?.name?.replace(/\s+/g, "-").toLowerCase() || employeeId}-${startDate}.pdf`
+      const result = await exportWorkDiaryPdf({
+        heading: "Work Diary",
+        meta: [
+          ["Employee", employee?.name],
+          ["Email", employee?.email],
+          ["Period", rangeLabel(rangeKey, customRange)],
+        ],
+        stats: {
+          workedSeconds: overallTotalSeconds,
+          idleSeconds,
+          productiveSeconds: agg.productiveSeconds,
+          productivePercent: agg.productivePercent,
+        },
+        apps: agg.apps,
+        sessions,
+        // Matches the gallery below, which renders this page with isAdminView
+        // set: this route is management-only and always shows the admin copy of
+        // a screenshot, so the PDF must read the same field.
+        isAdminView: true,
+        fileName: `work-diary-${employee?.name?.replace(/\s+/g, "-").toLowerCase() || employeeId}-${startDate}.pdf`,
+        onProgress: (loaded, total) => setProgress(total ? { loaded, total } : null),
+      });
+      toast.success(
+        result.screenshotsOmitted > 0
+          ? `PDF exported — ${result.screenshotsIncluded} screenshots included, ${result.screenshotsOmitted} omitted.`
+          : "PDF exported."
       );
-      toast.success("PDF exported.");
     } catch (err) {
       toast.error(err?.message || "Couldn't export the PDF.");
     } finally {
       setExporting(false);
+      setProgress(null);
     }
   };
+
+  const exportLabel = progress?.total
+    ? `Exporting ${Math.round((progress.loaded / progress.total) * 100)}%`
+    : exporting
+      ? "Exporting…"
+      : "Export PDF";
 
   return (
     <div className="pb-10">
@@ -92,9 +122,9 @@ const EmployeeWorkDiaryPage = () => {
               icon="solar:document-text-linear"
               isLoading={exporting}
               onClick={handleExport}
-              disabled={sessions.length === 0}
+              disabled={sessions.length === 0 || exporting}
             >
-              Export PDF
+              {exportLabel}
             </Button>
           </div>
         }
@@ -103,7 +133,7 @@ const EmployeeWorkDiaryPage = () => {
             trigger={<IconButton icon="solar:menu-dots-bold" label="Diary actions" />}
             items={[
               {
-                label: exporting ? "Exporting…" : "Export PDF",
+                label: exportLabel,
                 icon: "solar:document-text-linear",
                 disabled: sessions.length === 0 || exporting,
                 onClick: handleExport,
@@ -138,7 +168,7 @@ const EmployeeWorkDiaryPage = () => {
           onTaskId={setTaskId}
         />
 
-        <div ref={exportRef} className="space-y-5 bg-[var(--surface-app)]">
+        <div className="space-y-5 bg-[var(--surface-app)]">
           <StatTiles
             workedSeconds={overallTotalSeconds}
             idleSeconds={idleSeconds}

@@ -42,8 +42,12 @@ export function useConversation(contactId) {
     queryFn: async () => {
       const res = await fetchConversation(contactId);
       nextPageUrlRef.current = res.data?.next_page_url || null;
-      // API returns newest-first; the UI renders oldest→newest.
-      return (res.data?.data || []).slice().reverse();
+      // Each page already arrives oldest→newest, which is exactly how it renders.
+      // The backend sorts newest-first to paginate (so page 1 is the most RECENT
+      // batch), then reverses the rows inside the page before returning them —
+      // see ChatController::getConversation. Reversing again here would put the
+      // newest message at the top of the thread.
+      return res.data?.data || [];
     },
     enabled: Boolean(contactId) && Boolean(user),
     staleTime: 15_000,
@@ -99,7 +103,9 @@ export function useConversation(contactId) {
     if (!nextPageUrlRef.current) return;
     const res = await fetchConversationPage(nextPageUrlRef.current);
     nextPageUrlRef.current = res.data?.next_page_url || null;
-    setOlderPages((prev) => [...(res.data?.data || []).slice().reverse(), ...prev]);
+    // Page 2 is the batch BEFORE page 1, already oldest→newest within itself,
+    // so it goes on the front of the thread untouched.
+    setOlderPages((prev) => [...(res.data?.data || []), ...prev]);
   };
 
   const send = async (message, { replyTo, attachments = [] } = {}) => {

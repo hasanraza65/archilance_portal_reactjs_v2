@@ -1,0 +1,44 @@
+# SPA rewrite for the NEW app, which is served from the /v2/ subfolder of the
+# same site as the classic app.
+#
+# This file MUST exist inside /v2/. mod_rewrite does not inherit a parent
+# .htaccess by default, so without it the site root's `RewriteRule . /index.html`
+# would catch every deep /v2/ link and hand back the CLASSIC app's HTML.
+# With it, the rules here fully replace the parent's for anything under /v2/.
+#
+# It lives in public/ so `npm run build` copies it into dist/ automatically.
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /v2/
+
+  # Force HTTPS. Repeated from the root .htaccess on purpose - the parent's
+  # rules do not apply in here (see note above).
+  RewriteCond %{HTTPS} off
+  RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  RewriteRule ^index\.html$ - [L]
+
+  # Anything that is not a real file or folder is a client-side route.
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /v2/index.html [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+  # index.html names the current asset hashes, so it must never be cached -
+  # otherwise a browser keeps loading last deploy's JS after an update.
+  <FilesMatch "^index\.html$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires 0
+  </FilesMatch>
+</IfModule>
+
+# Asset filenames contain a content hash, so a given URL can never change.
+<IfModule mod_expires.c>
+  ExpiresActive On
+  <FilesMatch "\.(js|css|woff2|svg|png|jpg|webp)$">
+    ExpiresDefault "access plus 1 year"
+  </FilesMatch>
+</IfModule>

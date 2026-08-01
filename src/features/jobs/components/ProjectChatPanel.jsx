@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Avatar from "@/components/ui/Avatar";
 import IconButton from "@/components/ui/IconButton";
 import EmptyState from "@/components/ui/EmptyState";
@@ -47,6 +47,32 @@ const ProjectChatPanel = ({ projectId, scope = "internal" }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, scope]);
 
+  /* Newest message is at the bottom (the API returns these oldest→newest), so
+   * open there and follow new ones — but only while the reader is already at
+   * the bottom, so a 20s poll can't yank someone out of older messages. */
+  const scrollRef = useRef(null);
+  const atBottomRef = useRef(true);
+  const lastKeyRef = useRef(null);
+  const lastCountRef = useRef(0);
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (el) atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight <= 120;
+  };
+
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const key = `${projectId}:${scope}`;
+    const switched = lastKeyRef.current !== key;
+    if (switched) { lastKeyRef.current = key; atBottomRef.current = true; }
+    if (switched || (messages.length !== lastCountRef.current && atBottomRef.current)) {
+      lastCountRef.current = messages.length;
+      el.scrollTop = el.scrollHeight;
+    }
+    lastCountRef.current = messages.length;
+  }, [messages.length, projectId, scope]);
+
   const submit = async (e) => {
     e.preventDefault();
     if (!text.trim()) return;
@@ -77,7 +103,7 @@ const ProjectChatPanel = ({ projectId, scope = "internal" }) => {
 
   return (
     <div className="flex flex-col h-[520px] rounded-2xl border border-[var(--line-subtle)] bg-[var(--surface-raised)] overflow-hidden">
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-4 space-y-3">
         {loading ? (
           <div className="flex justify-center py-10"><Spinner /></div>
         ) : messages.length === 0 ? (
