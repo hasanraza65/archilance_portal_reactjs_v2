@@ -6,18 +6,24 @@ import Menu from "@/components/ui/Menu";
 import IconButton from "@/components/ui/IconButton";
 import DueDatePill from "@/components/ui/DueDatePill";
 import SmartSyncBanner from "@/components/ui/SmartSyncBanner";
+import InlineAddField from "@/components/ui/InlineAddField";
 import StatusMenu from "./StatusMenu";
 import PriorityMenu from "./PriorityMenu";
 import AssigneePicker from "./AssigneePicker";
 import { useTaskChildren, useUpdateTaskField, useDeleteTask, useSetTaskAssignees, useCreateTask } from "../useJobsData";
-import { isCompletedStatus } from "@/lib/statusMeta";
+import { isCompletedStatus, priorityMeta } from "@/lib/statusMeta";
+import { useIsPhone } from "@/hooks/useMediaQuery";
 import { computeParentSyncSuggestion } from "@/lib/smartSync";
 import { cn } from "@/lib/cn";
 import { toast } from "@/lib/toast";
 
 const INDENT = 22;
+// Phones get a tighter indent — at 22px a third-level task had barely half the
+// screen left for its own title.
+const MOBILE_INDENT = 13;
 
 const TaskTreeRow = ({ task, depth = 0, projectId, onOpenTask, isEditable = true }) => {
+  const isPhone = useIsPhone();
   const [expanded, setExpanded] = useState(false);
   const [dismissedSync, setDismissedSync] = useState(false);
   const [addingChild, setAddingChild] = useState(false);
@@ -45,11 +51,10 @@ const TaskTreeRow = ({ task, depth = 0, projectId, onOpenTask, isEditable = true
     updateField.mutate({ taskId: task.id, field: "status", value: next });
   };
 
-  const submitChild = async (e) => {
-    e.preventDefault();
-    if (!newChildTitle.trim()) return;
+  const submitChild = async (value) => {
+    if (!value?.trim()) return;
     try {
-      await createTask.mutateAsync({ projectId, parentTaskId: task.id, title: newChildTitle.trim() });
+      await createTask.mutateAsync({ projectId, parentTaskId: task.id, title: value.trim() });
       setNewChildTitle("");
       setAddingChild(false);
       setExpanded(true);
@@ -58,6 +63,179 @@ const TaskTreeRow = ({ task, depth = 0, projectId, onOpenTask, isEditable = true
       toast.error(err?.response?.data?.message || "Couldn't add the sub-task.");
     }
   };
+
+  const menuItems = [
+    ...(isEditable ? [{ label: "Add sub-task", icon: "solar:add-circle-linear", onClick: () => { setAddingChild(true); setExpanded(true); } }] : []),
+    { label: "Open task", icon: "solar:widget-3-linear", onClick: () => navigate(`/jobs/task/${task.id}`) },
+    ...(isEditable ? ["divider", { label: "Delete task", icon: "solar:trash-bin-trash-linear", danger: true, onClick: () => deleteTaskMut.mutate(task.id) }] : []),
+  ];
+
+  /* ------------------------------------------------------------------ *
+   * PHONE ROW
+   *
+   * The desktop row is one line: title, then priority, assignees, due date
+   * and a fixed 104px status well. That trailing group is ~310px wide, so on
+   * a 390px screen it left the title almost no room — it truncated to nothing
+   * and the status pill still pushed past the card edge.
+   *
+   * Here the title gets the full width on its own line and the same controls
+   * sit underneath it as a wrapping meta row. Chips that aren't set are left
+   * out entirely rather than shown as empty "No date" / "Priority" outlines —
+   * on a list of 200 rows that placeholder noise was most of the clutter. Set
+   * them by opening the task, which is where the full meta row lives.
+   *
+   * The overflow menu is also always visible here: the desktop actions are
+   * opacity-0 until :group-hover, and a touch screen has no hover, so on a
+   * phone add-sub-task and delete were simply unreachable.
+   * ------------------------------------------------------------------ */
+  if (isPhone) {
+    // priorityMeta returns null when nothing is set, which is the common case —
+    // that's the chip worth omitting rather than rendering as an empty outline.
+    const showPriority = Boolean(priorityMeta(task.priority));
+    const assignees = (task.assignees || []).map((a) => a.user).filter(Boolean);
+
+    return (
+      <div>
+        <div
+          className="flex items-start gap-1.5 py-2 pr-1 rounded-lg active:bg-[var(--surface-sunken)] transition-colors duration-150"
+          style={{ paddingLeft: depth * MOBILE_INDENT + 2 }}
+        >
+          <button
+            type="button"
+            onClick={() => setExpanded((e) => !e)}
+            aria-label={expanded ? "Collapse" : "Expand"}
+            className={cn(
+              "w-7 h-7 flex-none grid place-items-center rounded-lg text-[var(--ink-tertiary)]",
+              !hasChildren && "invisible"
+            )}
+          >
+            <motion.span animate={{ rotate: expanded ? 90 : 0 }} transition={{ duration: 0.15 }}>
+              <Icon icon="solar:alt-arrow-right-bold" className="text-[13px]" />
+            </motion.span>
+          </button>
+
+          <button
+            type="button"
+            onClick={toggleQuickComplete}
+            aria-label={isCompletedStatus(task.task_status) ? "Mark not done" : "Mark done"}
+            className="w-7 h-7 flex-none grid place-items-center"
+          >
+            <span
+              className={cn(
+                "w-5 h-5 rounded-full border-2 grid place-items-center transition-colors duration-150",
+                isCompletedStatus(task.task_status)
+                  ? "bg-emerald-500 border-emerald-500"
+                  : "border-[var(--line-strong)]"
+              )}
+            >
+              {isCompletedStatus(task.task_status) && <Icon icon="solar:check-read-linear" className="text-white text-[11px]" />}
+            </span>
+          </button>
+
+          <div className="flex-1 min-w-0 pt-0.5">
+            <a
+              href={`/jobs/task/${task.id}`}
+              onClick={handleOpen}
+              className={cn(
+                "block text-[14px] leading-snug font-medium text-[var(--ink-primary)] line-clamp-2",
+                isCompletedStatus(task.task_status) && "line-through text-[var(--ink-tertiary)]"
+              )}
+            >
+              {task.task_title}
+            </a>
+
+            <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+              <StatusMenu
+                status={task.task_status}
+                onChange={(v) => updateField.mutate({ taskId: task.id, field: "status", value: v })}
+                disabled={!isEditable}
+              />
+              {task.due_date && (
+                <DueDatePill
+                  date={task.due_date}
+                  status={task.task_status}
+                  onChange={(v) => updateField.mutate({ taskId: task.id, field: "dueDate", value: v })}
+                  editable={isEditable}
+                />
+              )}
+              {showPriority && (
+                <PriorityMenu
+                  priority={task.priority}
+                  onChange={(v) => updateField.mutate({ taskId: task.id, field: "priority", value: v })}
+                  disabled={!isEditable}
+                />
+              )}
+              {assignees.length > 0 && (
+                <AssigneePicker
+                  assignees={assignees}
+                  onChange={(ids, employees) => setAssignees.mutate({ taskId: task.id, employeeIds: ids, employees })}
+                  disabled={!isEditable}
+                />
+              )}
+              {hasChildren && (
+                <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[var(--ink-tertiary)] bg-[var(--surface-sunken)] rounded-full px-2 py-1">
+                  <Icon icon="solar:checklist-minimalistic-linear" className="text-[11px]" />
+                  {task.sub_tasks_count}
+                </span>
+              )}
+              {task.has_urgent_descendant && task.priority !== "Urgent" && (
+                <Icon icon="solar:fire-bold" className="text-priority-urgent text-[13px]" title="Contains an urgent item" />
+              )}
+            </div>
+          </div>
+
+          <Menu
+            trigger={<IconButton icon="solar:menu-dots-bold" size="sm" label="Task actions" className="flex-none" />}
+            items={menuItems}
+          />
+        </div>
+
+        <div style={{ paddingLeft: (depth + 1) * MOBILE_INDENT + 2 }}>
+          <SmartSyncBanner
+            suggestion={suggestion}
+            isApplying={updateField.isPending}
+            onAccept={() => updateField.mutate({ taskId: task.id, field: "status", value: "Completed" })}
+            onDismiss={() => setDismissedSync(true)}
+          />
+        </div>
+
+        <AnimatePresence initial={false}>
+          {expanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+              className="overflow-hidden"
+            >
+              {childrenLoading ? (
+                <div className="py-1.5 space-y-1" style={{ paddingLeft: (depth + 1) * MOBILE_INDENT + 2 }}>
+                  <div className="skeleton h-5 w-2/3 rounded" />
+                </div>
+              ) : (
+                (children || []).map((child) => (
+                  <TaskTreeRow key={child.id} task={child} depth={depth + 1} projectId={projectId} onOpenTask={onOpenTask} isEditable={isEditable} />
+                ))
+              )}
+
+              {addingChild && (
+                <div className="py-1.5 pr-1" style={{ paddingLeft: (depth + 1) * MOBILE_INDENT + 2 }}>
+                  <InlineAddField
+                    value={newChildTitle}
+                    onChange={setNewChildTitle}
+                    onSubmit={submitChild}
+                    onCancel={() => { setNewChildTitle(""); setAddingChild(false); }}
+                    placeholder="Sub-task title"
+                    busy={createTask.isPending}
+                  />
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -157,17 +335,16 @@ const TaskTreeRow = ({ task, depth = 0, projectId, onOpenTask, isEditable = true
             )}
 
             {addingChild && (
-              <form onSubmit={submitChild} className="flex items-center gap-2 py-1.5" style={{ paddingLeft: (depth + 1) * INDENT + 4 }}>
-                <Icon icon="solar:add-circle-linear" className="text-[var(--ink-tertiary)] text-[15px]" />
-                <input
-                  autoFocus
+              <div className="py-1.5 pr-1" style={{ paddingLeft: (depth + 1) * INDENT + 4 }}>
+                <InlineAddField
                   value={newChildTitle}
-                  onChange={(e) => setNewChildTitle(e.target.value)}
-                  onBlur={() => !newChildTitle && setAddingChild(false)}
-                  placeholder="Sub-task title, press Enter to save"
-                  className="flex-1 text-[13.5px] bg-transparent outline-none border-b border-primary-300 pb-0.5"
+                  onChange={setNewChildTitle}
+                  onSubmit={submitChild}
+                  onCancel={() => { setNewChildTitle(""); setAddingChild(false); }}
+                  placeholder="Sub-task title"
+                  busy={createTask.isPending}
                 />
-              </form>
+              </div>
             )}
           </motion.div>
         )}

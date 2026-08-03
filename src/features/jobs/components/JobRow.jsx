@@ -3,26 +3,62 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import Icon from "@/components/ui/Icon";
 
-import { StatusPill } from "@/components/ui/StatusPill";
-import { useJobRootTasks, useCreateTask } from "../useJobsData";
+import InlineAddField from "@/components/ui/InlineAddField";
+import StatusMenu from "./StatusMenu";
+import CompleteJobConfirm from "./CompleteJobConfirm";
+import { useJobRootTasks, useCreateTask, useUpdateJobStatus } from "../useJobsData";
 import TaskTreeRow from "./TaskTreeRow";
+import { isCompletedStatus } from "@/lib/statusMeta";
+import { useAuth } from "@/auth/AuthContext";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { toast } from "@/lib/toast";
 
+/**
+ * Who may change a JOB's status — deliberately narrower than `isEditable`,
+ * which governs tasks and includes employees and internees. A job status is a
+ * project-level call (and completing one completes every task inside it), so it
+ * matches the set that can create jobs in JobsListPage. Widen here if that
+ * should change.
+ */
+const JOB_STATUS_ROLES = ["admin", "manager", "supervisor", "executive"];
+
 const JobRow = ({ job, onOpenTask, isEditable = true }) => {
+  const { user } = useAuth();
+  const canEditStatus = JOB_STATUS_ROLES.includes(user?.role);
   const [expanded, setExpanded] = useState(false);
   const [addingRoot, setAddingRoot] = useState(false);
   const [title, setTitle] = useState("");
+  const [confirmComplete, setConfirmComplete] = useState(false);
   const navigate = useNavigate();
   const { data: tasks, isLoading } = useJobRootTasks(job.id, expanded);
   const createTask = useCreateTask();
+  const updateJobStatus = useUpdateJobStatus();
 
-  const submit = async (e) => {
-    e.preventDefault();
-    if (!title.trim()) return;
+  const applyStatus = (status) =>
+    updateJobStatus.mutate(
+      { projectId: job.id, status },
+      {
+        onSuccess: () => toast.success(`Job moved to ${status}.`),
+        onError: (err) => toast.error(err?.response?.data?.message || "Couldn't update the job status."),
+      }
+    );
+
+  /**
+   * Completing a JOB is not like completing a task: the backend also flips every
+   * task in it to Completed (ProjectController::updateStatus) and notifies the
+   * people on it. That is not something to trigger by mis-tapping a pill in a
+   * list of 200 rows, so it asks first. Every other status applies immediately.
+   */
+  const handleStatusChange = (status) => {
+    if (status === job.status) return;
+    if (isCompletedStatus(status)) { setConfirmComplete(true); return; }
+    applyStatus(status);
+  };
+
+  const submit = async (value) => {
     try {
-      await createTask.mutateAsync({ projectId: job.id, title: title.trim() });
+      await createTask.mutateAsync({ projectId: job.id, title: value.trim() });
       setTitle("");
       setAddingRoot(false);
       toast.success("Task added");
@@ -60,9 +96,25 @@ const JobRow = ({ job, onOpenTask, isEditable = true }) => {
             <span className="text-[11px] text-[var(--ink-tertiary)] hidden sm:inline">{job.tasks_count} tasks</span>
           )}
           {job.due_date && <span className="text-[11px] text-[var(--ink-tertiary)] hidden md:inline">Due {formatDate(job.due_date)}</span>}
-          <StatusPill status={job.status} />
+          {/* The whole header row toggles the task tree, so the menu has to keep
+              its clicks to itself or picking a status would also expand the job. */}
+          <span onClick={(e) => e.stopPropagation()}>
+            <StatusMenu
+              status={job.status}
+              onChange={handleStatusChange}
+              disabled={!canEditStatus || updateJobStatus.isPending}
+            />
+          </span>
         </span>
       </div>
+
+      <CompleteJobConfirm
+        open={confirmComplete}
+        job={job}
+        isPending={updateJobStatus.isPending}
+        onCancel={() => setConfirmComplete(false)}
+        onConfirm={() => { setConfirmComplete(false); applyStatus("Completed"); }}
+      />
 
       <AnimatePresence initial={false}>
         {expanded && (
@@ -88,17 +140,16 @@ const JobRow = ({ job, onOpenTask, isEditable = true }) => {
 
               {isEditable && (
                 addingRoot ? (
-                  <form onSubmit={submit} className="flex items-center gap-2 py-1.5 px-2">
-                    <Icon icon="solar:add-circle-linear" className="text-[var(--ink-tertiary)] text-[15px]" />
-                    <input
-                      autoFocus
+                  <div className="px-2 py-1.5">
+                    <InlineAddField
                       value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      onBlur={() => !title && setAddingRoot(false)}
-                      placeholder="Task title, press Enter to save"
-                      className="flex-1 text-[13.5px] bg-transparent outline-none border-b border-primary-300 pb-0.5"
+                      onChange={setTitle}
+                      onSubmit={submit}
+                      onCancel={() => { setTitle(""); setAddingRoot(false); }}
+                      placeholder="Task title"
+                      busy={createTask.isPending}
                     />
-                  </form>
+                  </div>
                 ) : (
                   <button
                     type="button"

@@ -41,8 +41,16 @@ export async function fetchTaskChildren(role, taskId) {
 }
 
 /**
- * Cross-project, per-employee task breakdown ("Members View"). Gated to
- * admin/manager/supervisor/executive on the backend.
+ * Cross-project, per-employee task breakdown ("Members View").
+ *
+ * Available to admin, supervisor (role 6) AND every user_role 3 account: the
+ * employee route sits OUTSIDE the employeeType:Executive group
+ * (routes/api.php:387, group closes at :384). The old assistant assumed it was
+ * manager-only and pushed plain employees onto a truncated fan-out instead.
+ *
+ * Returns ALL employees (backend filters user_role = 3) each with their
+ * assigned tasks at BOTH layers, unpaginated. `light=1` adds employee_type,
+ * which the assistant needs to enforce peer visibility.
  *
  * `light=1` is an opt-in slimming param: it drops the duplicated flat
  * `assignedTasks` array (every task already appears under tasks_by_status) and
@@ -50,9 +58,14 @@ export async function fetchTaskChildren(role, taskId) {
  * Older backends simply ignore the param and return the full response, which
  * this view also handles, so it degrades gracefully.
  */
-export async function fetchProjectsWithMembers(role, { statuses } = {}) {
+export async function fetchProjectsWithMembers(role, { statuses, employeeId, peerScope = false } = {}) {
   const params = { light: 1 };
   if (statuses?.length) params.statuses = statuses.join(",");
+  if (employeeId) params.employee_id = employeeId;
+  // Opt-in server-side peer visibility (ProjectController::peerHiddenUserIds).
+  // Omitted by default so the Members view — and every already-deployed client —
+  // keeps its current behaviour. The assistant sends it.
+  if (peerScope) params.peer_scope = 1;
   const res = await apiClient.get(ep(role, "/projects-with-members"), { params });
   return res.data || [];
 }
@@ -81,7 +94,11 @@ export async function createJob(role, { projectName, projectDescription, startDa
   return res.data?.project ?? res.data;
 }
 
-/** Soft-delete (the projects table uses deleted_at, so this is recoverable in the DB). */
+/**
+ * Delete a job. NOTE: this is a HARD delete. The projects table has a
+ * deleted_at column but app/Models/Project.php does not use the SoftDeletes
+ * trait, so the row is really gone.
+ */
 export async function deleteJob(role, projectId) {
   const res = await apiClient.delete(ep(role, `/project/${projectId}`));
   return res.data;
@@ -164,4 +181,20 @@ export async function fetchProjectsWithTasks(role, { status, page = 1, assignedM
     currentPage: payload?.current_page ?? page,
     lastPage: payload?.last_page ?? 1,
   };
+}
+
+
+/**
+ * EVERY task, root and child, unpaginated — the only endpoint that gives an
+ * exact task total without fanning out over jobs.
+ *
+ * employee prefix only (routes/api.php:407). The backend scopes it to the
+ * caller's own assignments when employee_type is exactly "Employee"; every
+ * other sub-type receives the whole org's tasks. Callers must therefore treat
+ * the scope as "depends on employee_type", not "mine".
+ */
+export async function fetchAllProjectTasks(role) {
+  const res = await apiClient.get(ep(role, "/all-project-tasks"));
+  const raw = res.data?.data ?? res.data;
+  return Array.isArray(raw) ? raw : [];
 }

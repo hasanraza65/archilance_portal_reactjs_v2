@@ -6,8 +6,10 @@ import Icon from "@/components/ui/Icon";
 import IconButton from "@/components/ui/IconButton";
 import { StatusPill, PriorityPill } from "@/components/ui/StatusPill";
 import { useAuth } from "@/auth/AuthContext";
-import { parseIntent, SUGGESTIONS } from "./intents";
-import { runIntent } from "./runIntent";
+import { useQueryClient } from "@tanstack/react-query";
+import { parse } from "./nlu/parse";
+import { run } from "./run";
+import { SUGGESTIONS } from "./suggestions";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { cn } from "@/lib/cn";
 
@@ -56,6 +58,9 @@ const HIDDEN_ON = [/^\/chat(\/|$)/];
 const AssistantWidget = () => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  // Every read goes through the app's QueryClient so the assistant reuses data
+  // the Jobs / Dashboard / Work Diary pages already fetched.
+  const queryClient = useQueryClient();
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
@@ -100,8 +105,8 @@ const AssistantWidget = () => {
     setMessages((m) => [...m, { from: "user", text }]);
     setThinking(true);
     try {
-      const parsed = parseIntent(text);
-      const result = await runIntent(parsed, { role: user.role, user });
+      const parsed = parse(text);
+      const result = await run(parsed, { role: user.role, user, queryClient });
       setMessages((m) => [...m, { from: "bot", ...result }]);
     } catch (err) {
       setMessages((m) => [
@@ -229,6 +234,29 @@ const AssistantWidget = () => {
                     )}
                   >
                     <RichText text={m.text} />
+
+                    {m.coverageNote && (
+                      <p className="mt-1.5 text-[11px] leading-snug text-[var(--ink-tertiary)] flex items-start gap-1">
+                        <Icon icon="solar:info-circle-linear" className="text-[11px] mt-[2px] flex-none" />
+                        {m.coverageNote}
+                      </p>
+                    )}
+
+                    {m.clarify?.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2.5">
+                        {m.clarify.map((c) => (
+                          <button
+                            key={c.label}
+                            /* Sends the PAYLOAD, not the label — a chip must never
+                               be re-parsed and re-misrouted. */
+                            onClick={() => ask(c.payload)}
+                            className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-[var(--surface-raised)] border border-[var(--line-subtle)] text-[var(--ink-secondary)] hover:border-primary-400 hover:text-primary-600 transition-colors"
+                          >
+                            {c.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
 
                     {m.items?.length > 0 && (
                       <div className="mt-2 -mx-1 rounded-xl border border-[var(--line-subtle)] bg-[var(--surface-raised)] divide-y divide-[var(--line-subtle)]">

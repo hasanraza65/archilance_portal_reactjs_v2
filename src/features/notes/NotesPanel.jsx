@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import Icon from "@/components/ui/Icon";
 import IconButton from "@/components/ui/IconButton";
+import InlineAddField from "@/components/ui/InlineAddField";
 import { createNote, createNotesBulk, updateNote, updateNoteStatus, deleteNote, isNoteDone } from "@/api/notes";
 import { useAuth } from "@/auth/AuthContext";
 import { extractErrorMessage } from "@/api/client";
@@ -37,9 +38,8 @@ const NotesPanel = ({ parentId, type, notes = [], editable = true, invalidateKey
   const visible = hideDone ? items.filter((n) => !isNoteDone(n)) : items;
   const pct = items.length ? Math.round((doneCount / items.length) * 100) : 0;
 
-  const add = async (e) => {
-    e?.preventDefault();
-    const raw = draft.trim();
+  const add = async (value) => {
+    const raw = (typeof value === "string" ? value : draft).trim();
     if (!raw) return;
     // One note per line, so pasting a list Just Works.
     const lines = raw.split("\n").map((l) => l.trim()).filter(Boolean);
@@ -206,22 +206,17 @@ const NotesPanel = ({ parentId, type, notes = [], editable = true, invalidateKey
 
         {editable && (
           adding ? (
-            <form onSubmit={add} className="flex items-start gap-2.5 px-2 py-1.5">
-              <Icon icon="solar:add-circle-linear" className="text-[var(--ink-tertiary)] text-[15px] mt-0.5 flex-none" />
-              <textarea
-                autoFocus
-                rows={1}
+            <div className="px-2 py-1.5">
+              <InlineAddField
                 value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onBlur={() => { if (!draft.trim()) setAdding(false); }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); add(e); }
-                  if (e.key === "Escape") { setDraft(""); setAdding(false); }
-                }}
-                placeholder="Add an item — Enter to save, paste a list for several"
-                className="flex-1 text-[13px] bg-transparent outline-none border-b border-primary-300 pb-0.5 resize-none"
+                onChange={setDraft}
+                onSubmit={add}
+                onCancel={() => { setDraft(""); setAdding(false); }}
+                placeholder="Add an item — paste a list for several"
+                icon="solar:check-square-bold-duotone"
+                multiline
               />
-            </form>
+            </div>
           ) : (
             <button
               type="button"

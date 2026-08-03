@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import Icon from "@/components/ui/Icon";
 import EmptyState from "@/components/ui/EmptyState";
+import InlineAddField from "@/components/ui/InlineAddField";
 import { useJobDetail, useJobRootTasks, useCreateTask } from "./useJobsData";
 import TaskTreeRow from "./components/TaskTreeRow";
 import JobHeader from "./components/JobHeader";
@@ -59,11 +60,10 @@ const JobDetailPage = () => {
   // Briefs ship with the job detail (`allBriefs`), so there's nothing extra to fetch.
   const briefs = job?.all_briefs || job?.allBriefs || [];
 
-  const submit = async (e) => {
-    e.preventDefault();
-    if (!title.trim()) return;
+  const submit = async (value) => {
+    if (!value?.trim()) return;
     try {
-      await createTask.mutateAsync({ projectId, title: title.trim() });
+      await createTask.mutateAsync({ projectId, title: value.trim() });
       setTitle("");
       setAddingRoot(false);
       toast.success("Task added");
@@ -169,17 +169,16 @@ const JobDetailPage = () => {
               )}
 
               {addingRoot && (
-                <form onSubmit={submit} className="flex items-center gap-2 py-1.5 px-2">
-                  <Icon icon="solar:add-circle-linear" className="text-[var(--ink-tertiary)] text-[15px]" />
-                  <input
-                    autoFocus
+                <div className="py-1.5 px-2">
+                  <InlineAddField
                     value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    onBlur={() => !title && setAddingRoot(false)}
-                    placeholder="Task title, press Enter to save"
-                    className="flex-1 text-[13.5px] bg-transparent outline-none border-b border-primary-300 pb-0.5"
+                    onChange={setTitle}
+                    onSubmit={submit}
+                    onCancel={() => { setTitle(""); setAddingRoot(false); }}
+                    placeholder="Task title"
+                    busy={createTask.isPending}
                   />
-                </form>
+                </div>
               )}
             </div>
 
