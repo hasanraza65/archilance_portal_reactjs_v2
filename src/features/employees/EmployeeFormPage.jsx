@@ -20,7 +20,7 @@ import { cn } from "@/lib/cn";
 const EMPTY = {
   name: "", email: "", username: "", phone: "",
   employeeType: "Employee", joiningDate: null, probationEndDate: null,
-  managerId: null, interneeManagerId: null,
+  managerId: null, interneeManagerId: null, employeeTeam: null,
   password: "", passwordConfirmation: "",
   contractStatus: false,
 };
@@ -65,6 +65,7 @@ const EmployeeFormPage = () => {
       probationEndDate: toDateOnly(existing.probation_period_end_date),
       managerId: existing.manager_id || null,
       interneeManagerId: existing.internee_manager_id || null,
+      employeeTeam: existing.employee_team || null,
       contractStatus: Number(existing.contract_status) === 1,
     });
   }, [existing]);
@@ -86,6 +87,17 @@ const EmployeeFormPage = () => {
   );
 
   const isInternee = values.employeeType === "Internee";
+
+  // Teams are fixed labels agreed with management; the backend stores a free
+  // string, so adding one later is a one-line change here.
+  const TEAM_OPTIONS = [
+    { value: "BIM Team", label: "BIM Team" },
+    { value: "3D Team", label: "3D Team" },
+    { value: "Outsource Department", label: "Outsource Department" },
+  ];
+  // Deliberately narrower than who can open this form (supervisors can, but
+  // were not included when this field was specced). Widen here if that changes.
+  const canSetTeam = ["admin", "executive", "manager"].includes(user?.role);
   const showManager = ["Employee", "Manager", "Executive"].includes(values.employeeType);
 
   const validate = () => {
@@ -175,6 +187,18 @@ const EmployeeFormPage = () => {
                 size="lg"
               />
             </Field>
+            {canSetTeam && (
+              <Field label="Team" hint="Optional — used for grouping and reporting">
+                <SearchSelect
+                  options={TEAM_OPTIONS}
+                  value={values.employeeTeam}
+                  onChange={(v) => set("employeeTeam", v)}
+                  placeholder="No team"
+                  size="lg"
+                  clearable
+                />
+              </Field>
+            )}
           </div>
           <p className="text-[11px] text-[var(--ink-tertiary)] mt-3 flex items-start gap-1.5">
             <Icon icon="solar:bolt-bold-duotone" className="text-[12px] mt-0.5 flex-none text-primary-500" />

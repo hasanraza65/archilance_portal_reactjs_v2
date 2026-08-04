@@ -39,8 +39,44 @@ const ReviewAudit = ({ request, className }) => {
   const { user } = useAuth();
 
   const tone = TONES[request?.status];
-  if (!tone) return null; // Pending — nothing has been decided yet
   if (!isAdminOrExecutive(user?.role)) return null;
+
+  // Pending: nothing has been decided, so instead of the outcome we show WHO
+  // the request is waiting on — the employee's reporting manager. With the new
+  // routing, that person is the one who received it; no manager set means it
+  // lands with admins/executives directly, so say that instead.
+  if (!tone) {
+    if (request?.status !== "Pending") return null;
+    const mgr = request?.user?.manager;
+    // The backend only attaches `manager` for admin/exec viewers; an absent key
+    // on an older cached row simply renders nothing.
+    if (request?.user === undefined || !("manager" in (request.user || {}))) return null;
+    return (
+      <div
+        className={cn(
+          "inline-flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-lg border px-2.5 py-1.5",
+          "border-amber-200 bg-amber-50 dark:border-amber-500/25 dark:bg-amber-500/10",
+          className
+        )}
+      >
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
+          <Icon icon="solar:hourglass-bold-duotone" className="text-[13px]" />
+          Awaiting
+        </span>
+        {mgr ? (
+          <span className="inline-flex items-center gap-1.5 text-xs text-amber-800/80 dark:text-amber-300/80">
+            <Avatar name={mgr.name} src={mgr.profile_pic ? getMediaUrl(mgr.profile_pic) : null} size="xs" />
+            <span className="font-semibold">{mgr.name}</span>
+            <span className="text-[var(--ink-tertiary)]">(reporting manager)</span>
+          </span>
+        ) : (
+          <span className="text-xs text-amber-800/80 dark:text-amber-300/80">
+            no manager assigned — yours to action
+          </span>
+        )}
+      </div>
+    );
+  }
 
   const reviewer = request.approver;
   const reviewedAt = formatDateTime(request.reviewed_at);

@@ -15,6 +15,23 @@ export async function fetchMyLeaveRequests(role) {
 }
 
 /**
+ * The FULL index response — the endpoint also returns `types` (weekdays used
+ * per leave type in the current cycle), `counts` (all-time status totals) and
+ * `cycle` (the joining-anniversary window). fetchMyLeaveRequests() above throws
+ * those away, which is why My Leaves had no balance cards.
+ */
+export async function fetchMyLeaveEnvelope(role) {
+  const res = await apiClient.get(ep(role, "/leave-request"));
+  const raw = res.data || {};
+  return {
+    data: Array.isArray(raw) ? raw : raw.data || [],
+    types: raw.types || {},
+    counts: raw.counts || null,
+    cycle: raw.cycle || null,
+  };
+}
+
+/**
  * Admin/manager viewing all leave requests. Admins hit /api/admin/leave-request;
  * everyone else (manager/supervisor/executive/outsource) hits
  * /api/employee/other-leave-request — mirrors the work-session split exactly.

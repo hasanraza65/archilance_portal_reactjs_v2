@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  fetchMyLeaveRequests, fetchLeaveRequests, createLeaveRequest, updateLeaveRequest,
-  updateLeaveStatus, deleteLeaveRequest,
+  fetchMyLeaveRequests, fetchMyLeaveEnvelope, fetchLeaveRequests, createLeaveRequest,
+  updateLeaveRequest, updateLeaveStatus, deleteLeaveRequest,
 } from "@/api/leave";
 import { useAuth } from "@/auth/AuthContext";
 
@@ -10,6 +10,16 @@ export function useMyLeaveRequests() {
   return useQuery({
     queryKey: ["my-leave-requests", user?.role],
     queryFn: () => fetchMyLeaveRequests(user.role),
+    enabled: Boolean(user),
+  });
+}
+
+/** Requests + per-type usage + cycle window, for the balance cards. */
+export function useMyLeaveEnvelope() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["my-leave-envelope", user?.role],
+    queryFn: () => fetchMyLeaveEnvelope(user.role),
     enabled: Boolean(user),
   });
 }
@@ -31,7 +41,10 @@ export function useCreateLeaveRequest() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload) => createLeaveRequest(user.role, payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["my-leave-requests"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["my-leave-requests"] });
+      qc.invalidateQueries({ queryKey: ["my-leave-envelope"] });
+    },
   });
 }
 
@@ -40,7 +53,10 @@ export function useUpdateLeaveRequest() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...payload }) => updateLeaveRequest(user.role, id, payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["my-leave-requests"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["my-leave-requests"] });
+      qc.invalidateQueries({ queryKey: ["my-leave-envelope"] });
+    },
   });
 }
 

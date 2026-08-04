@@ -47,6 +47,10 @@ function employeePayload(v, { isEdit }) {
     internee_manager_id: v.employeeType === "Internee" ? v.interneeManagerId || null : null,
     manager_id: ["Employee", "Manager", "Executive"].includes(v.employeeType) ? v.managerId || null : null,
   };
+  // Only send employee_team when the form carried the field at all — update()
+  // ignores an absent key, so callers that never load the dropdown can't wipe
+  // a saved team. An empty selection explicitly clears it.
+  if (v.employeeTeam !== undefined) body.employee_team = v.employeeTeam || "";
   // Only send contract_status when the caller may set it — update() leaves the
   // column untouched unless the key is present, so a normal edit can't re-lock
   // somebody out of the portal.
