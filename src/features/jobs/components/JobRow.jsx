@@ -8,6 +8,7 @@ import StatusMenu from "./StatusMenu";
 import CompleteJobConfirm from "./CompleteJobConfirm";
 import { useJobRootTasks, useCreateTask, useUpdateJobStatus } from "../useJobsData";
 import TaskTreeRow from "./TaskTreeRow";
+import TaskStatusGroups from "./TaskStatusGroups";
 import { isCompletedStatus } from "@/lib/statusMeta";
 import { useAuth } from "@/auth/AuthContext";
 import { formatDate } from "@/lib/format";
@@ -131,9 +132,13 @@ const JobRow = ({ job, onOpenTask, isEditable = true }) => {
                   {[1, 2, 3].map((i) => <div key={i} className="skeleton h-5 w-3/4 rounded" />)}
                 </div>
               ) : tasks && tasks.length > 0 ? (
-                tasks.map((task) => (
-                  <TaskTreeRow key={task.id} task={task} depth={0} projectId={job.id} onOpenTask={onOpenTask} isEditable={isEditable} />
-                ))
+                <TaskStatusGroups
+                  tasks={tasks}
+                  indent={4}
+                  renderTask={(task) => (
+                    <TaskTreeRow key={task.id} task={task} depth={0} projectId={job.id} onOpenTask={onOpenTask} isEditable={isEditable} />
+                  )}
+                />
               ) : (
                 <p className="text-xs text-[var(--ink-tertiary)] py-3 px-2">No tasks yet in this job.</p>
               )}

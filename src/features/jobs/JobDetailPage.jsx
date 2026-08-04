@@ -5,6 +5,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import InlineAddField from "@/components/ui/InlineAddField";
 import { useJobDetail, useJobRootTasks, useCreateTask } from "./useJobsData";
 import TaskTreeRow from "./components/TaskTreeRow";
+import TaskStatusGroups from "./components/TaskStatusGroups";
 import JobHeader from "./components/JobHeader";
 import ProjectChatPanel from "./components/ProjectChatPanel";
 import TaskDetailSheet from "@/features/tasks/TaskDetailSheet";
@@ -161,9 +162,13 @@ const JobDetailPage = () => {
               {tasksLoading ? (
                 <div className="space-y-2 p-2">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-5 w-3/4 rounded" />)}</div>
               ) : tasks && tasks.length > 0 ? (
-                tasks.map((task) => (
-                  <TaskTreeRow key={task.id} task={task} depth={0} projectId={projectId} onOpenTask={setOpenTaskId} isEditable={isEditable} />
-                ))
+                <TaskStatusGroups
+                  tasks={tasks}
+                  indent={4}
+                  renderTask={(task) => (
+                    <TaskTreeRow key={task.id} task={task} depth={0} projectId={projectId} onOpenTask={setOpenTaskId} isEditable={isEditable} />
+                  )}
+                />
               ) : (
                 <p className="text-xs text-[var(--ink-tertiary)] py-3 px-2">No tasks yet.</p>
               )}

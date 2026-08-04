@@ -7,6 +7,7 @@ import IconButton from "@/components/ui/IconButton";
 import DueDatePill from "@/components/ui/DueDatePill";
 import SmartSyncBanner from "@/components/ui/SmartSyncBanner";
 import InlineAddField from "@/components/ui/InlineAddField";
+import TaskStatusGroups from "./TaskStatusGroups";
 import StatusMenu from "./StatusMenu";
 import PriorityMenu from "./PriorityMenu";
 import AssigneePicker from "./AssigneePicker";
@@ -213,9 +214,13 @@ const TaskTreeRow = ({ task, depth = 0, projectId, onOpenTask, isEditable = true
                   <div className="skeleton h-5 w-2/3 rounded" />
                 </div>
               ) : (
-                (children || []).map((child) => (
-                  <TaskTreeRow key={child.id} task={child} depth={depth + 1} projectId={projectId} onOpenTask={onOpenTask} isEditable={isEditable} />
-                ))
+                <TaskStatusGroups
+                  tasks={children || []}
+                  indent={(depth + 1) * MOBILE_INDENT + 2}
+                  renderTask={(child) => (
+                    <TaskTreeRow key={child.id} task={child} depth={depth + 1} projectId={projectId} onOpenTask={onOpenTask} isEditable={isEditable} />
+                  )}
+                />
               )}
 
               {addingChild && (
@@ -329,9 +334,13 @@ const TaskTreeRow = ({ task, depth = 0, projectId, onOpenTask, isEditable = true
                 <div className="skeleton h-5 w-2/3 rounded" />
               </div>
             ) : (
-              (children || []).map((child) => (
-                <TaskTreeRow key={child.id} task={child} depth={depth + 1} projectId={projectId} onOpenTask={onOpenTask} isEditable={isEditable} />
-              ))
+              <TaskStatusGroups
+                tasks={children || []}
+                indent={(depth + 1) * INDENT + 4}
+                renderTask={(child) => (
+                  <TaskTreeRow key={child.id} task={child} depth={depth + 1} projectId={projectId} onOpenTask={onOpenTask} isEditable={isEditable} />
+                )}
+              />
             )}
 
             {addingChild && (
