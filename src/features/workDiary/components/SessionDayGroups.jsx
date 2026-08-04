@@ -35,7 +35,7 @@ const dayHeading = (isoDate) => {
   return `${weekday} · ${date}`;
 };
 
-const SessionDayGroups = ({ sessions = [], onDelete, onDeleteScreenshot, isAdminView = false }) => {
+const SessionDayGroups = ({ sessions = [], onDelete, onDeleteScreenshot, onViewDeletedShots, isAdminView = false }) => {
   const groups = useMemo(() => {
     const map = new Map();
     for (const s of sessions) {
@@ -57,6 +57,7 @@ const SessionDayGroups = ({ sessions = [], onDelete, onDeleteScreenshot, isAdmin
             isAdminView={isAdminView}
             onDelete={onDelete}
             onDeleteScreenshot={onDeleteScreenshot}
+            onViewDeletedShots={onViewDeletedShots}
           />
         ))}
       </div>
@@ -87,6 +88,7 @@ const SessionDayGroups = ({ sessions = [], onDelete, onDeleteScreenshot, isAdmin
                   isAdminView={isAdminView}
                   onDelete={onDelete}
                   onDeleteScreenshot={onDeleteScreenshot}
+                  onViewDeletedShots={onViewDeletedShots}
                 />
               ))}
             </div>

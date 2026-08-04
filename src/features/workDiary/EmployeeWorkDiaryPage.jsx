@@ -13,15 +13,18 @@ import StatTiles from "./components/StatTiles";
 import AppUsageChart from "./components/AppUsageChart";
 import SessionDayGroups from "./components/SessionDayGroups";
 import DiaryFilterBar from "./components/DiaryFilterBar";
+import DeletedScreenshotsModal from "./components/DeletedScreenshotsModal";
 import { aggregateWindowsActivity } from "@/lib/productivity";
 import { DEFAULT_RANGE_KEY, resolveRange, rangeLabel } from "./dateRanges";
 import { exportWorkDiaryPdf } from "./exportPdf";
 import { getMediaUrl } from "@/api/media";
+import { useAuth } from "@/auth/AuthContext";
 import { toast } from "@/lib/toast";
 
 const EmployeeWorkDiaryPage = () => {
   const { employeeId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { data: employees = [] } = useAllEmployees();
 
   const [rangeKey, setRangeKey] = useState(DEFAULT_RANGE_KEY);
@@ -30,6 +33,9 @@ const EmployeeWorkDiaryPage = () => {
   const [taskId, setTaskId] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [progress, setProgress] = useState(null);
+  // Only admins get to see what an employee deleted (matches v1's
+  // AdminEmployeeWorkSession.jsx gate) — see docs/deleted-screenshots-flow.md.
+  const [deletedShotsSessionId, setDeletedShotsSessionId] = useState(null);
 
   const [startDate, endDate] = resolveRange(rangeKey, customRange);
 
@@ -197,11 +203,21 @@ const EmployeeWorkDiaryPage = () => {
                 description="Try a different date range or clear the job/task filters."
               />
             ) : (
-              <SessionDayGroups sessions={sessions} isAdminView />
+              <SessionDayGroups
+                sessions={sessions}
+                isAdminView
+                onViewDeletedShots={user?.role === "admin" ? setDeletedShotsSessionId : undefined}
+              />
             )}
           </div>
         </div>
       </div>
+
+      <DeletedScreenshotsModal
+        open={Boolean(deletedShotsSessionId)}
+        sessionId={deletedShotsSessionId}
+        onClose={() => setDeletedShotsSessionId(null)}
+      />
     </div>
   );
 };
