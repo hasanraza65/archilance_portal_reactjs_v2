@@ -14,11 +14,19 @@ export function formatDateTime(value) {
   if (!value) return "";
   const d = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(d.getTime())) return String(value);
+  return `${formatDate(d)} at ${formatTime(d)}`;
+}
+
+/** "4:07 PM" — time only, no date. */
+export function formatTime(value) {
+  if (!value) return "";
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
   let h = d.getHours();
   const m = String(d.getMinutes()).padStart(2, "0");
   const ampm = h >= 12 ? "PM" : "AM";
   h = h % 12 || 12;
-  return `${formatDate(d)} at ${h}:${m} ${ampm}`;
+  return `${h}:${m} ${ampm}`;
 }
 
 /** "in 2 days" / "3 days overdue" / "today" / "tomorrow" — the phrasing ClickUp uses. */
