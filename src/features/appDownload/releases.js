@@ -84,6 +84,16 @@ export const versions = [
       "Multiple issues and bugs from previous versions have been fixed.",
     ],
   },
+   {
+    id: 7,
+    version: "3.4.4",
+    releaseDate: "August 11, 2026",
+    url: "https://portal.archilance.net/Archilance%20LLC%20Setup%203.4.4.exe",
+    releaseNotes: [
+      "Version upgraded with overall performance improvements.",
+      "Multiple issues and bugs from previous versions have been fixed.",
+    ],
+  },
 ];
 
 export const latestRelease = versions[versions.length - 1] || null;
