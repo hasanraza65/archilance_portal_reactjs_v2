@@ -13,6 +13,7 @@ import PriorityMenu from "./PriorityMenu";
 import AssigneePicker from "./AssigneePicker";
 import { useTaskChildren, useUpdateTaskField, useDeleteTask, useSetTaskAssignees, useCreateTask } from "../useJobsData";
 import { isCompletedStatus, priorityMeta } from "@/lib/statusMeta";
+import { formatDuration } from "@/lib/format";
 import { useIsPhone } from "@/hooks/useMediaQuery";
 import { computeParentSyncSuggestion } from "@/lib/smartSync";
 import { cn } from "@/lib/cn";
@@ -179,6 +180,17 @@ const TaskTreeRow = ({ task, depth = 0, projectId, onOpenTask, isEditable = true
                   {task.sub_tasks_count}
                 </span>
               )}
+              {/* Customer/member only — see the desktop branch above for why
+                  no role check is needed here. */}
+              {typeof task.total_hours === "number" && task.total_hours > 0 && (
+                <span
+                  className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-primary-600 dark:text-primary-400 bg-primary-500/10 rounded-full px-2 py-1"
+                  title="Time logged on this task"
+                >
+                  <Icon icon="solar:clock-circle-linear" className="text-[11px]" />
+                  {task.total_hours_formatted || formatDuration(task.total_hours)}
+                </span>
+              )}
               {task.has_urgent_descendant && task.priority !== "Urgent" && (
                 <Icon icon="solar:fire-bold" className="text-priority-urgent text-[13px]" title="Contains an urgent item" />
               )}
@@ -288,6 +300,21 @@ const TaskTreeRow = ({ task, depth = 0, projectId, onOpenTask, isEditable = true
         {hasChildren && (
           <span className="flex-none text-[10px] font-semibold text-[var(--ink-tertiary)] bg-[var(--surface-sunken)] rounded-full px-1.5 py-0.5">
             {task.sub_tasks_count}
+          </span>
+        )}
+
+        {/* `total_hours` only ever arrives on a customer/member payload — staff
+            endpoints never set it — so this is naturally invisible to admin,
+            manager, supervisor, executive, employee and internee views without
+            any role check here. Own-task time only (not rolled up into
+            children), matching what "time logged on THIS row" should mean. */}
+        {typeof task.total_hours === "number" && task.total_hours > 0 && (
+          <span
+            className="flex-none inline-flex items-center gap-1 text-[10px] font-semibold text-primary-600 dark:text-primary-400 bg-primary-500/10 rounded-full px-1.5 py-0.5"
+            title="Time logged on this task"
+          >
+            <Icon icon="solar:clock-circle-linear" className="text-[10px]" />
+            {task.total_hours_formatted || formatDuration(task.total_hours)}
           </span>
         )}
 

@@ -195,14 +195,16 @@ const JobDetailPage = () => {
                 editable={isEditable}
                 invalidateKeys={[["job-detail"]]}
               />
-              {seesInternal && (
-                <JobHoursSummary
-                  summary={job.tasks_hours_summary || []}
-                  range={hoursRange}
-                  onRangeChange={setHoursRange}
-                  isFetching={isFetching}
-                />
-              )}
+              {/* Every role gets this, including customer/member — the backend
+                  already computes tasks_hours_summary for all of them
+                  (admin/employee/customer ProjectController::show all set it),
+                  so this was a frontend-only gap, not a data gap. */}
+              <JobHoursSummary
+                summary={job.tasks_hours_summary || []}
+                range={hoursRange}
+                onRangeChange={setHoursRange}
+                isFetching={isFetching}
+              />
             </div>
           </>
         )}
