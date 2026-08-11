@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import Icon from "@/components/ui/Icon";
 import IconButton from "@/components/ui/IconButton";
 import { getMediaUrl } from "@/api/media";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatTime } from "@/lib/format";
 
 const ScreenshotGallery = ({ screenshots = [], isAdminView = false, onDelete }) => {
   const [activeIndex, setActiveIndex] = useState(null);
@@ -20,9 +20,14 @@ const ScreenshotGallery = ({ screenshots = [], isAdminView = false, onDelete }) 
           <button
             key={s.id}
             onClick={() => setActiveIndex(i)}
-            className="flex-none w-20 h-14 rounded-lg overflow-hidden border border-[var(--line-subtle)] hover:ring-2 hover:ring-primary-400 transition-shadow"
+            className="relative flex-none w-20 h-14 rounded-lg overflow-hidden border border-[var(--line-subtle)] hover:ring-2 hover:ring-primary-400 transition-shadow"
           >
             <img src={getMediaUrl(fieldFor(s), s.created_at)} alt="" className="w-full h-full object-cover" loading="lazy" />
+            {s.created_at && (
+              <span className="absolute bottom-0 inset-x-0 py-0.5 text-center text-[9px] leading-none font-medium text-white bg-black/55">
+                {formatTime(s.created_at)}
+              </span>
+            )}
           </button>
         ))}
       </div>

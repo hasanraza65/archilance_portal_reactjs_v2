@@ -55,6 +55,16 @@ export async function deleteScreenshot(role, screenshotId) {
 }
 
 /**
+ * Screenshots an employee has deleted from a session (soft-deleted server
+ * side). Admin-only — always hits the admin path directly since the button
+ * that triggers this is only ever shown to admins (see docs/deleted-screenshots-flow.md).
+ */
+export async function fetchDeletedScreenshots(sessionId) {
+  const res = await apiClient.get(ep("admin", `/deleted-screenshots/${sessionId}`));
+  return res.data;
+}
+
+/**
  * 30-second activity snapshots for one work session.
  *
  * Response is `{ status, message, data: [...] }` — a FLAT array, never a

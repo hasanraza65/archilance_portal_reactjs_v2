@@ -94,6 +94,7 @@ const EmployeeFormPage = () => {
     { value: "BIM Team", label: "BIM Team" },
     { value: "3D Team", label: "3D Team" },
     { value: "Outsource Department", label: "Outsource Department" },
+    { value: "Business Team", label: "Business Team" },
   ];
   // Deliberately narrower than who can open this form (supervisors can, but
   // were not included when this field was specced). Widen here if that changes.

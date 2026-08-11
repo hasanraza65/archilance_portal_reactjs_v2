@@ -10,7 +10,7 @@ import { sessionWorkedSeconds, idleSecondsForSession } from "../useWorkDiaryData
 import { formatDuration } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
-const SessionCard = ({ session, isAdminView = false, onDelete, onDeleteScreenshot }) => {
+const SessionCard = ({ session, isAdminView = false, onDelete, onDeleteScreenshot, onViewDeletedShots }) => {
   const [expanded, setExpanded] = useState(false);
   const [tab, setTab] = useState("screenshots");
   const worked = sessionWorkedSeconds(session);
@@ -87,6 +87,9 @@ const SessionCard = ({ session, isAdminView = false, onDelete, onDeleteScreensho
           <div className="mt-2.5"><SessionTimelineBar session={session} /></div>
         </div>
         <div className="flex items-center gap-1 flex-none">
+          {isAdminView && onViewDeletedShots && (
+            <IconButton icon="solar:gallery-remove-bold" size="sm" onClick={() => onViewDeletedShots(session.id)} label="Deleted shots" />
+          )}
           <IconButton icon={expanded ? "solar:alt-arrow-up-linear" : "solar:alt-arrow-down-linear"} size="sm" onClick={() => setExpanded((e) => !e)} label="Details" />
           {onDelete && <IconButton icon="solar:trash-bin-trash-linear" size="sm" variant="danger" onClick={() => onDelete(session.id)} label="Delete session" />}
         </div>
