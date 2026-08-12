@@ -5,6 +5,7 @@ import Badge from "@/components/ui/Badge";
 import Icon from "@/components/ui/Icon";
 import IconButton from "@/components/ui/IconButton";
 import EmptyState from "@/components/ui/EmptyState";
+import Modal from "@/components/ui/Modal";
 import MobileFilterBar from "@/components/ui/MobileFilterBar";
 import { useLeaveRequests, useUpdateLeaveStatus, useDeleteLeaveRequest } from "./useLeaveData";
 import LeaveBalanceModal from "./LeaveBalanceModal";
@@ -27,6 +28,7 @@ const StaffLeavesPage = () => {
   const [page, setPage] = useState(1);
   const [balanceTarget, setBalanceTarget] = useState(null);
   const [recordOpen, setRecordOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
 
@@ -204,7 +206,7 @@ const StaffLeavesPage = () => {
                         <span className="sm:hidden">Reset to pending</span>
                       </button>
                     )}
-                    <IconButton icon="solar:trash-bin-trash-linear" size="sm" variant="danger" label="Delete" onClick={() => deleteMut.mutate(r.id)} className="flex-none" />
+                    <IconButton icon="solar:trash-bin-trash-linear" size="sm" variant="danger" label="Delete" onClick={() => setDeleteTarget(r)} className="flex-none" />
                   </div>
                 </div>
               </div>
@@ -225,6 +227,26 @@ const StaffLeavesPage = () => {
 
       <LeaveBalanceModal request={balanceTarget} onClose={() => setBalanceTarget(null)} />
       <RecordLeaveModal open={recordOpen} onClose={() => setRecordOpen(false)} />
+
+      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete leave request?" className="max-w-md">
+        <p className="text-sm text-[var(--ink-secondary)]">
+          This will permanently delete <strong className="text-[var(--ink-primary)]">{deleteTarget?.user?.name || "this"}</strong>'s{" "}
+          {deleteTarget?.leave_type?.toLowerCase()} leave request
+          {deleteTarget ? ` (${formatDate(deleteTarget.start_date)} to ${formatDate(deleteTarget.end_date)})` : ""}. This can't be undone.
+        </p>
+        <div className="flex justify-end gap-2 mt-5">
+          <Button variant="secondary" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+          <Button
+            variant="danger"
+            isLoading={deleteMut.isPending}
+            onClick={() => {
+              deleteMut.mutate(deleteTarget.id, { onSuccess: () => setDeleteTarget(null) });
+            }}
+          >
+            Delete
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 };
