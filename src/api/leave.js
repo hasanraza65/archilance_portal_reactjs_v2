@@ -1,12 +1,49 @@
 import { apiClient } from "./client";
 import { ep } from "./endpoint";
 
+/**
+ * Fallback list, used only until the backend's `policy` block arrives (and by
+ * any older backend that doesn't send one). The live list is derived from
+ * `policy.entitlements` — see leaveTypeOptions() below.
+ */
 export const LEAVE_TYPES = [
   { value: "casual", label: "Casual Leave" },
   { value: "annual", label: "Annual Leave" },
   { value: "sick", label: "Sick Leave" },
   { value: "other", label: "Other (Specify)" },
 ];
+
+/** "Other" is not an entitlement — it is submitted as Casual with a tagged reason. */
+export const OTHER_TYPE = { value: "other", label: "Other (Specify)" };
+
+/**
+ * Selectable leave types for the apply form, driven by the backend policy so a
+ * change to entitlements never needs a frontend release. Types the employee is
+ * currently barred from (e.g. Annual during probation) are returned with
+ * `disabled` + the reason rather than hidden, so the rule is visible.
+ */
+export function leaveTypeOptions(policy) {
+  const entitlements = policy?.entitlements;
+  if (!entitlements) return [...LEAVE_TYPES];
+
+  // "additional" (BIM Team public-holiday compensation, its own 8-day pool —
+  // NOT merged into casual) is only present in `entitlements` for BIM Team
+  // members, so the .filter() below naturally omits it for everyone else.
+  const ordered = ["casual", "additional", "annual", "sick", "marriage", "unpaid"];
+  const options = ordered
+    .filter((key) => entitlements[key])
+    .map((key) => {
+      const e = entitlements[key];
+      return {
+        value: key,
+        label: `${e.label} Leave`,
+        disabled: e.available === false,
+        note: e.note || null,
+      };
+    });
+
+  return [...options, OTHER_TYPE];
+}
 
 export async function fetchMyLeaveRequests(role) {
   const res = await apiClient.get(ep(role, "/leave-request"));
@@ -28,6 +65,9 @@ export async function fetchMyLeaveEnvelope(role) {
     types: raw.types || {},
     counts: raw.counts || null,
     cycle: raw.cycle || null,
+    // Current leave policy: entitlements, balances, probation state and the
+    // rule constants. Null when talking to a backend that predates the policy.
+    policy: raw.policy || null,
   };
 }
 
@@ -101,7 +141,32 @@ export async function fetchLeaveRequestDetail(viewerRole, id) {
     request: res.data?.data ?? res.data,
     summary: res.data?.leave_summary || {},
     cycle: res.data?.cycle || null,
+    policy: res.data?.policy || null,
   };
+}
+
+/**
+ * Record leave FOR an employee — the management exception path.
+ *
+ * Post without `override` first: a policy breach comes back as 422 carrying
+ * `policy_violation` and `can_override`, which the UI shows before re-posting
+ * with `override: true` and a justification.
+ */
+export async function createLeaveOnBehalf(viewerRole, {
+  userId, startDate, endDate, reason, leaveType, status, override, overrideReason,
+}) {
+  const path = viewerRole === "admin" ? "/leave-request" : "/other-leave-request";
+  const res = await apiClient.post(ep(viewerRole, path), {
+    user_id: userId,
+    start_date: startDate,
+    end_date: endDate,
+    reason,
+    leave_type: leaveType,
+    status,
+    override: override ? 1 : undefined,
+    override_reason: override ? overrideReason : undefined,
+  });
+  return res.data;
 }
 
 export async function deleteLeaveRequest(viewerRole, id) {

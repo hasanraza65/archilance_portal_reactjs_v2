@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   fetchMyLeaveRequests, fetchMyLeaveEnvelope, fetchLeaveRequests, createLeaveRequest,
-  updateLeaveRequest, updateLeaveStatus, deleteLeaveRequest,
+  updateLeaveRequest, updateLeaveStatus, deleteLeaveRequest, createLeaveOnBehalf,
 } from "@/api/leave";
 import { useAuth } from "@/auth/AuthContext";
 
@@ -56,6 +56,22 @@ export function useUpdateLeaveRequest() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["my-leave-requests"] });
       qc.invalidateQueries({ queryKey: ["my-leave-envelope"] });
+    },
+  });
+}
+
+/**
+ * Record leave FOR an employee (management exception path). Pass
+ * `override: true` after the backend has reported a policy breach.
+ */
+export function useCreateLeaveOnBehalf() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload) => createLeaveOnBehalf(user.role, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["leave-requests"] });
+      qc.invalidateQueries({ queryKey: ["leave-detail"] });
     },
   });
 }

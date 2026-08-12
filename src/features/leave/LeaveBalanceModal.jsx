@@ -10,13 +10,20 @@ import { fetchLeaveRequestDetail } from "@/api/leave";
 import { useAuth } from "@/auth/AuthContext";
 import { getMediaUrl } from "@/api/media";
 import { formatDate } from "@/lib/format";
-import { LEAVE_ENTITLEMENTS, serviceMonths, eligibilityNote, balanceTone } from "./leaveEntitlements";
+import { serviceMonths, eligibilityNote, balanceTone, balanceRulesFromPolicy, unitLabel } from "./leaveEntitlements";
 import { cn } from "@/lib/cn";
+
+// Legacy allow-list fallback only — used when talking to a backend that
+// predates the `policy` block, matching MyLeavesPage's own fallback.
+const ADDITIONAL_LEAVE_USER_IDS = [109, 171, 22, 173, 50, 172, 147, 118, 35, 180, 114, 69, 182, 23, 26, 21, 128, 175, 139, 28, 58, 162];
 
 /**
  * Per-employee leave balance, opened from a Staff Leaves row.
- * `leave_summary` (days used this cycle) comes from the request-detail endpoint;
- * the totals come from the entitlement rules.
+ *
+ * Reads `policy.entitlements` (current policy: shrunk ceilings, admin-added
+ * days hidden from "used", Additional as its own BIM-only pool) when the
+ * backend provides it — falling back to the legacy `leave_summary` shape
+ * (fixed totals, no Additional/Casual split) for an older backend only.
  */
 const LeaveBalanceModal = ({ request, onClose }) => {
   const { user: viewer } = useAuth();
@@ -32,9 +39,14 @@ const LeaveBalanceModal = ({ request, onClose }) => {
   const months = serviceMonths(employee?.joining_date);
   const summary = data?.summary || {};
   const cycle = data?.cycle;
+  const policy = data?.policy || null;
 
-  // "other"/"additional" only appear when the backend actually reports them.
-  const rows = LEAVE_ENTITLEMENTS.filter((e) => !e.optional || summary[e.key] !== undefined);
+  // balanceRulesFromPolicy() already falls back to the legacy LEAVE_ENTITLEMENTS
+  // shape (computing used/remaining from `summary`) when policy is absent, so
+  // this one call covers both a current and a pre-policy backend.
+  const rows = balanceRulesFromPolicy(policy, summary, {
+    includeAdditional: ADDITIONAL_LEAVE_USER_IDS.includes(employee?.id),
+  });
 
   return (
     <Modal open={open} onClose={onClose} title="Leave balance" className="max-w-lg">
@@ -69,15 +81,17 @@ const LeaveBalanceModal = ({ request, onClose }) => {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {rows.map((rule) => {
-                const used = Number(summary[rule.key] || 0);
-                const unlimited = rule.total === 0;
-                const remaining = unlimited ? null : Math.max(0, rule.total - used);
+                const used = Number(rule.used || 0);
+                const unlimited = rule.total === null || rule.total === undefined || rule.total === 0;
+                const remaining = unlimited ? null : Math.max(0, rule.remaining ?? rule.total - used);
                 const pct = unlimited ? 0 : Math.min(100, (used / rule.total) * 100);
                 const tone = unlimited ? null : balanceTone(remaining);
-                const locked = eligibilityNote(rule.key, months);
+                // Prefer the policy's own note (e.g. probation restriction) —
+                // fall back to the legacy service-months eligibility check.
+                const locked = rule.note || eligibilityNote(rule.key, months);
 
                 return (
-                  <div key={rule.key} className="rounded-xl border border-[var(--line-subtle)] p-3.5">
+                  <div key={rule.key} className={cn("rounded-xl border border-[var(--line-subtle)] p-3.5", rule.available === false && "opacity-60")}>
                     <div className="flex items-baseline justify-between mb-2">
                       <span className="text-sm font-semibold text-[var(--ink-primary)]">{rule.label}</span>
                       {unlimited ? (
@@ -100,9 +114,12 @@ const LeaveBalanceModal = ({ request, onClose }) => {
                           />
                         </div>
                         <div className="flex items-center justify-between mt-1.5 text-[11px] text-[var(--ink-tertiary)]">
-                          <span>Used {used} of {rule.total}</span>
+                          <span>Used {used} of {rule.total} {rule.unit ? unitLabel(rule.unit) : ""}</span>
                           <span className={tone.text}>{tone.label}</span>
                         </div>
+                        {rule.scope === "employment" && (
+                          <p className="text-[10px] text-[var(--ink-tertiary)] mt-1">Once per employment</p>
+                        )}
                       </>
                     )}
 

@@ -8,7 +8,9 @@ import EmptyState from "@/components/ui/EmptyState";
 import MobileFilterBar from "@/components/ui/MobileFilterBar";
 import { useLeaveRequests, useUpdateLeaveStatus, useDeleteLeaveRequest } from "./useLeaveData";
 import LeaveBalanceModal from "./LeaveBalanceModal";
+import RecordLeaveModal from "./RecordLeaveModal";
 import ReviewAudit from "./ReviewAudit";
+import Button from "@/components/ui/Button";
 import { useAllEmployees } from "@/features/employees/useEmployeesData";
 import { useDebounce } from "@/hooks/useDebounce";
 import { getMediaUrl } from "@/api/media";
@@ -24,6 +26,7 @@ const StaffLeavesPage = () => {
   const [filter, setFilter] = useState("All");
   const [page, setPage] = useState(1);
   const [balanceTarget, setBalanceTarget] = useState(null);
+  const [recordOpen, setRecordOpen] = useState(false);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
 
@@ -63,14 +66,21 @@ const StaffLeavesPage = () => {
         title="Staff Leaves"
         subtitle={`${counts.total ?? 0} total · ${counts.pending ?? 0} pending`}
         actions={
-          <div className="relative hidden sm:block">
-            <Icon icon="solar:magnifer-linear" className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-tertiary)] text-[15px]" />
-            <input
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              placeholder="Search name, email or phone…"
-              className="pl-9 pr-3 h-9 w-64 rounded-lg border border-[var(--line-subtle)] bg-[var(--surface-raised)] text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30"
-            />
+          <div className="flex items-center gap-2">
+            <div className="relative hidden sm:block">
+              <Icon icon="solar:magnifer-linear" className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-tertiary)] text-[15px]" />
+              <input
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                placeholder="Search name, email or phone…"
+                className="pl-9 pr-3 h-9 w-64 rounded-lg border border-[var(--line-subtle)] bg-[var(--surface-raised)] text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+              />
+            </div>
+            {/* Management exception route — record leave that the employee
+                cannot file themselves (short-notice Annual Leave, etc.). */}
+            <Button size="sm" icon="solar:calendar-add-bold" onClick={() => setRecordOpen(true)}>
+              Record leave
+            </Button>
           </div>
         }
         tabs={
@@ -214,6 +224,7 @@ const StaffLeavesPage = () => {
       </div>
 
       <LeaveBalanceModal request={balanceTarget} onClose={() => setBalanceTarget(null)} />
+      <RecordLeaveModal open={recordOpen} onClose={() => setRecordOpen(false)} />
     </div>
   );
 };
