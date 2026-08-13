@@ -3,7 +3,7 @@ import { Command } from "cmdk";
 import { useNavigate } from "react-router-dom";
 import { useUI } from "@/store/UIContext";
 import { useAuth } from "@/auth/AuthContext";
-import { ALL_NAV_ITEMS } from "@/lib/nav";
+import { ALL_NAV_ITEMS, isNavItemVisible } from "@/lib/nav";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import Icon from "@/components/ui/Icon";
 
@@ -26,7 +26,7 @@ const CommandPalette = () => {
     setCommandPaletteOpen(false);
   };
 
-  const navItems = ALL_NAV_ITEMS.filter((i) => i.roles.includes(user?.role));
+  const navItems = ALL_NAV_ITEMS.filter((i) => isNavItemVisible(i, user));
 
   return (
     <Command.Dialog

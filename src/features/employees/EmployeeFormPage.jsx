@@ -16,6 +16,7 @@ import { isAdminOrExecutive } from "@/lib/roles";
 import { extractErrorMessage } from "@/api/client";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/cn";
+import { TEAM_OPTIONS } from "./teamOptions";
 
 const EMPTY = {
   name: "", email: "", username: "", phone: "",
@@ -86,16 +87,20 @@ const EmployeeFormPage = () => {
     [roster, employeeId]
   );
 
+  // Grading is delegated more loosely than line-management — a regular
+  // Employee often grades the internees on their own team, not just
+  // Manager/Executive/Supervisor. Same exclusion of the person being edited.
+  const gradingManagerOptions = useMemo(
+    () =>
+      roster
+        .filter((e) => ["Employee", "Manager", "Executive", "Supervisor"].includes(e.employee_type))
+        .filter((e) => String(e.id) !== String(employeeId))
+        .map((e) => ({ value: e.id, label: e.name, sub: e.employee_type })),
+    [roster, employeeId]
+  );
+
   const isInternee = values.employeeType === "Internee";
 
-  // Teams are fixed labels agreed with management; the backend stores a free
-  // string, so adding one later is a one-line change here.
-  const TEAM_OPTIONS = [
-    { value: "BIM Team", label: "BIM Team" },
-    { value: "3D Team", label: "3D Team" },
-    { value: "Outsource Department", label: "Outsource Department" },
-    { value: "Business Team", label: "Business Team" },
-  ];
   // Deliberately narrower than who can open this form (supervisors can, but
   // were not included when this field was specced). Widen here if that changes.
   const canSetTeam = ["admin", "executive", "manager"].includes(user?.role);
@@ -221,7 +226,7 @@ const EmployeeFormPage = () => {
             {isInternee && (
               <Field label="Grading manager" required error={errors.interneeManagerId} className="sm:col-span-2">
                 <SearchSelect
-                  options={managerOptions}
+                  options={gradingManagerOptions}
                   value={values.interneeManagerId}
                   onChange={(v) => set("interneeManagerId", v)}
                   placeholder={loadingRoster ? "Loading…" : "Choose who grades this internee"}

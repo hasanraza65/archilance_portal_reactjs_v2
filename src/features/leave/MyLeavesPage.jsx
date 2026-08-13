@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import PageHeader from "@/components/layout/PageHeader";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
@@ -10,6 +11,8 @@ import { useMyLeaveEnvelope, useCreateLeaveRequest } from "./useLeaveData";
 import { leaveTypeOptions } from "@/api/leave";
 import { balanceRulesFromPolicy, balanceTone, unitLabel } from "./leaveEntitlements";
 import { useAuth } from "@/auth/AuthContext";
+import { canViewPolicies } from "@/features/policies/access";
+import { canUseMyLeaves } from "./access";
 import { formatDate } from "@/lib/format";
 import { extractErrorMessage } from "@/api/client";
 import { toast } from "@/lib/toast";
@@ -42,6 +45,7 @@ function countDays(start, end, unit) {
 }
 
 const MyLeavesPage = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { data: envelope, isLoading } = useMyLeaveEnvelope();
   const requests = envelope?.data;
@@ -90,23 +94,54 @@ const MyLeavesPage = () => {
     }
   };
 
+  // Internee and "outsource" role never reach this page (see /my-leaves
+  // roles in App.jsx) — this catches the one case a role check can't: an
+  // Employee/Manager/etc. whose employee_team is Outsource Department.
+  if (!canUseMyLeaves(user)) {
+    return (
+      <div className="pb-10">
+        <PageHeader title="My Leaves" />
+        <div className="px-4 sm:px-6 lg:px-8 mt-5">
+          <EmptyState
+            icon="solar:shield-cross-linear"
+            title="Leave requests aren't submitted through the portal for you"
+            description="Outsource Department arranges time off directly with your manager, outside this flow."
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="pb-10">
       <PageHeader
         title="My Leaves"
         subtitle="Apply for leave and track your requests."
-        actions={canApply ? <Button icon="solar:add-circle-bold" onClick={() => setOpen(true)}>Apply for Leave</Button> : null}
+        actions={
+          <div className="flex items-center gap-2">
+            {canViewPolicies(user) && (
+              <Button variant="secondary" icon="solar:shield-check-bold" onClick={() => navigate("/policies")}>
+                Policies
+              </Button>
+            )}
+            {canApply && (
+              <Button icon="solar:add-circle-bold" onClick={() => setOpen(true)}>Apply for Leave</Button>
+            )}
+          </div>
+        }
       />
 
       <div className="px-4 sm:px-6 lg:px-8 mt-5 space-y-5">
-        {/* Employees outside the entitlement policy (internees, Outsource
-            Department) keep their history but cannot file new requests. */}
+        {/* Whatever the backend restricts (e.g. probation edge cases) keeps
+            history visible but can't file new requests. Internee, "outsource"
+            role, and Outsource Department team never reach this page at all
+            — see canUseMyLeaves in ./access.js. */}
         {policy && !canApply && (
-          <div className="rounded-2xl border border-amber-300/60 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10 p-4 flex items-start gap-3">
-            <Icon icon="solar:info-circle-bold" className="text-amber-600 dark:text-amber-400 text-[18px] flex-none mt-0.5" />
+          <div className="rounded-2xl border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4 flex items-start gap-3">
+            <Icon icon="solar:info-circle-bold" className="text-[var(--warning-icon)] text-[18px] flex-none mt-0.5" />
             <div>
-              <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">Leave entitlements do not apply to your role</p>
-              <p className="text-xs text-amber-800/80 dark:text-amber-200/70 mt-0.5">{policy.restricted_reason}</p>
+              <p className="text-sm font-semibold text-[var(--warning-text-strong)]">Leave entitlements do not apply to your role</p>
+              <p className="text-xs text-[var(--warning-text)] mt-0.5">{policy.restricted_reason}</p>
             </div>
           </div>
         )}

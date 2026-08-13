@@ -1,7 +1,7 @@
 import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { NAV_GROUPS } from "@/lib/nav";
+import { NAV_GROUPS, isNavItemVisible } from "@/lib/nav";
 import { useAuth } from "@/auth/AuthContext";
 import { useUI } from "@/store/UIContext";
 import Icon from "@/components/ui/Icon";
@@ -67,7 +67,7 @@ const Sidebar = () => {
 
   const groups = NAV_GROUPS.map((g) => ({
     ...g,
-    items: g.items.filter((i) => i.roles.includes(user?.role)),
+    items: g.items.filter((i) => isNavItemVisible(i, user)),
   })).filter((g) => g.items.length > 0);
 
   return (

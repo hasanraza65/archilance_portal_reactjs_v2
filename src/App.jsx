@@ -39,6 +39,7 @@ const AllCustomerTeamsPage = lazy(() => import("@/features/customerTeam/AllCusto
 const MyGradingPage = lazy(() => import("@/features/internee/MyGradingPage"));
 const InterneeGradingPage = lazy(() => import("@/features/internee/InterneeGradingPage"));
 const JobWorkDiaryPage = lazy(() => import("@/features/workDiary/JobWorkDiaryPage"));
+const PoliciesPage = lazy(() => import("@/features/policies/PoliciesPage"));
 
 const withSuspense = (el) => <Suspense fallback={<FullscreenLoader />}>{el}</Suspense>;
 
@@ -129,7 +130,11 @@ function App() {
         <Route
           path="/my-leaves"
           element={
-            <ProtectedRoute allowedRoles={["employee", "manager", "outsource", "supervisor", "executive"]}>
+            // "outsource" role removed — Outsource Department (the TEAM,
+            // independent of role) can't be expressed as a role list, so
+            // MyLeavesPage itself renders a restricted state for that case
+            // (see canUseMyLeaves in features/leave/access.js).
+            <ProtectedRoute allowedRoles={["employee", "manager", "supervisor", "executive"]}>
               {withSuspense(<MyLeavesPage />)}
             </ProtectedRoute>
           }
@@ -139,6 +144,18 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={["admin", "manager", "supervisor", "executive", "member"]}>
               {withSuspense(<StaffLeavesPage />)}
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/policies"
+          element={
+            // Internees aren't covered by this policy at all (see My Grading
+            // instead) — the Outsource Department / Business Team exclusion
+            // can't be expressed as a fixed role list, so PoliciesPage itself
+            // renders a restricted-access state for those (see canViewPolicies).
+            <ProtectedRoute allowedRoles={ALL_INTERNAL_ROLES.filter((r) => r !== "internee")}>
+              {withSuspense(<PoliciesPage />)}
             </ProtectedRoute>
           }
         />
