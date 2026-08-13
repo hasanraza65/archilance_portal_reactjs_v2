@@ -44,6 +44,8 @@ const EmployeeDetailPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const editable = canManageEmployees(user?.role);
+  // Team is only shown to admin — same restriction as the Employees list badge.
+  const canSeeTeam = user?.role === "admin";
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const { data: employee, isLoading, isError } = useEmployee(employeeId);
@@ -185,6 +187,14 @@ const EmployeeDetailPage = () => {
                 value={employee.probation_period_end_date ? formatDate(employee.probation_period_end_date) : "Not set"}
                 muted={!employee.probation_period_end_date}
               />
+              {canSeeTeam && (
+                <Row
+                  icon="solar:users-group-two-rounded-linear"
+                  label="Team"
+                  value={employee.employee_team || "Not set"}
+                  muted={!employee.employee_team}
+                />
+              )}
               <Row
                 icon="solar:users-group-rounded-linear"
                 label={isInternee ? "Grading manager" : "Reports to"}

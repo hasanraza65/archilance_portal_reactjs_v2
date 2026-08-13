@@ -114,6 +114,11 @@
   --ink-tertiary: var(--color-neutral-400);
   --line-subtle: var(--color-neutral-200);
   --line-strong: var(--color-neutral-300);
+  --warning-bg: #fffbeb;
+  --warning-border: rgb(217 119 6 / 0.35);
+  --warning-icon: #d97706;
+  --warning-text-strong: #78350f;
+  --warning-text: rgb(146 64 14 / 0.85);
 }
 
 :root[data-theme="dark"] {
@@ -126,6 +131,11 @@
   --ink-tertiary: var(--color-neutral-600);
   --line-subtle: var(--color-neutral-800);
   --line-strong: var(--color-neutral-700);
+  --warning-bg: rgb(245 158 11 / 0.1);
+  --warning-border: rgb(245 158 11 / 0.3);
+  --warning-icon: #fbbf24;
+  --warning-text-strong: #fde68a;
+  --warning-text: rgb(253 230 138 / 0.75);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -139,6 +149,11 @@
     --ink-tertiary: var(--color-neutral-600);
     --line-subtle: var(--color-neutral-800);
     --line-strong: var(--color-neutral-700);
+    --warning-bg: rgb(245 158 11 / 0.1);
+    --warning-border: rgb(245 158 11 / 0.3);
+    --warning-icon: #fbbf24;
+    --warning-text-strong: #fde68a;
+    --warning-text: rgb(253 230 138 / 0.75);
   }
 }
 

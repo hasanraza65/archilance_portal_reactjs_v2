@@ -123,7 +123,12 @@ const ProfilePage = () => {
           </div>
           <div>
             <p className="font-semibold text-[var(--ink-primary)]">{profile?.name}</p>
-            <Badge tone="primary" className="mt-1 capitalize">{user?.role}</Badge>
+            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+              <Badge tone="primary" className="capitalize">{user?.role}</Badge>
+              {/* Which team's leave policy applies to this employee — set by an
+                  admin/manager on their employee record (Employees → Edit). */}
+              {profile?.employee_team && <Badge tone="neutral">{profile.employee_team}</Badge>}
+            </div>
           </div>
         </div>
 

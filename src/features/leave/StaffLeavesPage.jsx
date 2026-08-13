@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import PageHeader from "@/components/layout/PageHeader";
 import Avatar from "@/components/ui/Avatar";
 import Badge from "@/components/ui/Badge";
@@ -7,6 +8,8 @@ import IconButton from "@/components/ui/IconButton";
 import EmptyState from "@/components/ui/EmptyState";
 import Modal from "@/components/ui/Modal";
 import MobileFilterBar from "@/components/ui/MobileFilterBar";
+import { useAuth } from "@/auth/AuthContext";
+import { canViewPolicies } from "@/features/policies/access";
 import { useLeaveRequests, useUpdateLeaveStatus, useDeleteLeaveRequest } from "./useLeaveData";
 import LeaveBalanceModal from "./LeaveBalanceModal";
 import RecordLeaveModal from "./RecordLeaveModal";
@@ -23,7 +26,18 @@ const FILTERS = ["All", "Pending", "Approved", "Rejected"];
 
 const daysBetween = (start, end) => Math.round((new Date(end) - new Date(start)) / 86400000) + 1;
 
+// "member" can also open Staff Leaves, but /policies is gated to actual
+// Archilance staff roles (see ALL_INTERNAL_ROLES in App.jsx) — a "member" has
+// no employee_team and nothing to see there, so the button is hidden for them
+// rather than linking somewhere ProtectedRoute would just bounce them back from.
+// Combined with canViewPolicies below: admin/manager/supervisor always pass
+// that check, so this list is really just excluding "member"; an executive
+// on Outsource Department / Business Team still gets hidden by the second half.
+const POLICIES_ROLES = ["admin", "manager", "supervisor", "executive"];
+
 const StaffLeavesPage = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [filter, setFilter] = useState("All");
   const [page, setPage] = useState(1);
   const [balanceTarget, setBalanceTarget] = useState(null);
@@ -78,6 +92,11 @@ const StaffLeavesPage = () => {
                 className="pl-9 pr-3 h-9 w-64 rounded-lg border border-[var(--line-subtle)] bg-[var(--surface-raised)] text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30"
               />
             </div>
+            {POLICIES_ROLES.includes(user?.role) && canViewPolicies(user) && (
+              <Button size="sm" variant="secondary" icon="solar:shield-check-bold" onClick={() => navigate("/policies")}>
+                Manage Policies
+              </Button>
+            )}
             {/* Management exception route — record leave that the employee
                 cannot file themselves (short-notice Annual Leave, etc.). */}
             <Button size="sm" icon="solar:calendar-add-bold" onClick={() => setRecordOpen(true)}>

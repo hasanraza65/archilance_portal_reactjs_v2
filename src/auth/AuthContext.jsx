@@ -52,6 +52,7 @@ export function AuthProvider({ children }) {
       role,
       user_role: apiUser.user_role,
       employee_type: apiUser.employee_type ?? null,
+      employee_team: apiUser.employee_team ?? null,
       profile_pic: apiUser.profile_pic ?? null,
       is_default_pass: apiUser.is_default_pass ?? 0,
       contract_status: apiUser.contract_status ?? 1,

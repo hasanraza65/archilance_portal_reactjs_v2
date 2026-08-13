@@ -201,6 +201,9 @@ const EmployeesPage = () => {
   const { user } = useAuth();
   const canManage = canManageEmployees(user?.role);
   const isAdmin = user?.role === "admin";
+  // Team is only shown to admin — everyone else who can open this list
+  // (executive, manager, supervisor) doesn't need the team grouping.
+  const canSeeTeam = user?.role === "admin";
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 350);
   const [page, setPage] = useState(1);
@@ -316,7 +319,7 @@ const EmployeesPage = () => {
               {visibleItems.map((e) => (
                 <div
                   key={e.id}
-                  onClick={() => navigate(`/work-diary/${e.id}`)}
+                  onClick={() => navigate(`/employees/${e.id}`)}
                   className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--surface-sunken)] transition-colors cursor-pointer"
                 >
                   <Avatar name={e.name} src={e.profile_pic ? getMediaUrl(e.profile_pic) : null} size="md" />
@@ -325,6 +328,9 @@ const EmployeesPage = () => {
                       <span className="text-sm font-semibold text-[var(--ink-primary)] truncate">{e.name}</span>
                       {e.employee_type && (
                         <Badge tone={TYPE_TONE[e.employee_type.toLowerCase()] || "neutral"} size="sm">{e.employee_type}</Badge>
+                      )}
+                      {canSeeTeam && e.employee_team && (
+                        <Badge tone="neutral" size="sm">{e.employee_team}</Badge>
                       )}
                       {presenceStatus(e) === "online" && <Badge tone="success" dot>Online</Badge>}
                       {presenceStatus(e) === "extra-time" && <Badge tone="danger" dot>Extra Time</Badge>}
@@ -346,17 +352,17 @@ const EmployeesPage = () => {
                       <span>Week: <b className="text-[var(--ink-primary)]">{e.week_time || "0h 0m"}</b></span>
                     </div>
                   )}
-                  {/* Row click stays on the work diary — the profile and edit
-                      screens get their own buttons so both are one click away. */}
+                  {/* Row click opens the profile — work diary and edit get
+                      their own buttons so both stay one click away. */}
                   <div
                     className="flex items-center gap-0.5 flex-none"
                     onClick={(ev) => ev.stopPropagation()}
                   >
                     <IconButton
-                      icon="solar:user-circle-bold-duotone"
+                      icon="solar:clock-circle-bold-duotone"
                       size="sm"
-                      label="View profile"
-                      onClick={() => navigate(`/employees/${e.id}`)}
+                      label="Work diary"
+                      onClick={() => navigate(`/work-diary/${e.id}`)}
                     />
                     {canManage && (
                       <IconButton
