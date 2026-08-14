@@ -18,6 +18,27 @@ export async function fetchEmployees(role, { page, perPage, search, employeeType
   };
 }
 
+/**
+ * The COMPLETE roster, walking every page.
+ *
+ * fetchEmployees returns a single page and the backend clamps `per_page` to
+ * 200, so one call quietly truncates once the company grows past that. For a
+ * picker that's a cosmetic gap; for the bulk diary export it would mean people
+ * silently missing from a monthly report, which is the worst kind of bug
+ * because the output still looks complete. So anything that must not miss
+ * anyone walks the pages instead of trusting one call.
+ */
+export async function fetchAllEmployees(role, { perPage = 200, maxPages = 25 } = {}) {
+  const first = await fetchEmployees(role, { page: 1, perPage });
+  const items = [...first.items];
+  const lastPage = Math.min(Number(first.lastPage) || 1, maxPages);
+  for (let page = 2; page <= lastPage; page += 1) {
+    const next = await fetchEmployees(role, { page, perPage });
+    items.push(...next.items);
+  }
+  return items;
+}
+
 export async function fetchEmployee(role, id) {
   const res = await apiClient.get(ep(role, `/employee-user/${id}`));
   return res.data?.data ?? res.data;

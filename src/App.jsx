@@ -14,6 +14,7 @@ const JobDetailPage = lazy(() => import("@/features/jobs/JobDetailPage"));
 const TaskFullPage = lazy(() => import("@/features/tasks/TaskFullPage"));
 const WorkDiaryPage = lazy(() => import("@/features/workDiary/WorkDiaryPage"));
 const EmployeeWorkDiaryPage = lazy(() => import("@/features/workDiary/EmployeeWorkDiaryPage"));
+const BulkExportPage = lazy(() => import("@/features/workDiary/BulkExportPage"));
 const EmployeesPage = lazy(() => import("@/features/employees/EmployeesPage"));
 const NotificationsPage = lazy(() => import("@/features/notifications/NotificationsPage"));
 const ProfilePage = lazy(() => import("@/features/profile/ProfilePage"));
@@ -105,6 +106,17 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={["employee", "outsource", "manager", "supervisor", "executive"]}>
               {withSuspense(<WorkDiaryPage />)}
+            </ProtectedRoute>
+          }
+        />
+        {/* Must stay ABOVE /work-diary/:employeeId. Router ranking already puts a
+            static segment ahead of a dynamic one, but the order makes it obvious
+            that "bulk-export" is a page, not an employee id. */}
+        <Route
+          path="/work-diary/bulk-export"
+          element={
+            <ProtectedRoute allowedRoles={["admin", "executive"]}>
+              {withSuspense(<BulkExportPage />)}
             </ProtectedRoute>
           }
         />

@@ -34,6 +34,9 @@ const CAPTION_H = 10;
 const RASTER_SCALE = 3;
 const JPEG_QUALITY = 0.72;
 
+// Defaults for a single-person export. The bulk exporter lowers both, because
+// what is a reasonable file for one employee becomes an unreasonable archive
+// when it is multiplied by the whole company — see bulkExport.js.
 const MAX_SCREENSHOTS_PER_SESSION = 12;
 const MAX_TOTAL_SCREENSHOTS = 400;
 const IMAGE_CONCURRENCY = 4;
@@ -222,6 +225,12 @@ const screenshotUrl = (shot, isAdminView) => {
  * @param {boolean}  opts.isAdminView  picks which screenshot field to read
  * @param {string}   opts.fileName
  * @param {function} opts.onProgress   (loaded, total) while screenshots download
+ * @param {"save"|"blob"} opts.output   "save" downloads it; "blob" hands the
+ *                                      bytes back so a caller can archive many
+ *                                      of them (bulk export) instead.
+ * @param {number}   opts.maxPerSession screenshot caps; 0 omits screenshots
+ * @param {number}   opts.maxTotal      entirely, which is much faster.
+ * @param {function} opts.shouldCancel  polled between sessions; return true to abort
  */
 export async function exportWorkDiaryPdf({
   heading = "Work Diary",
@@ -232,6 +241,10 @@ export async function exportWorkDiaryPdf({
   isAdminView = false,
   fileName = "work-diary.pdf",
   onProgress,
+  output = "save",
+  maxPerSession = MAX_SCREENSHOTS_PER_SESSION,
+  maxTotal = MAX_TOTAL_SCREENSHOTS,
+  shouldCancel,
 }) {
   const { default: jsPDF } = await import("jspdf");
 
@@ -348,13 +361,13 @@ export async function exportWorkDiaryPdf({
 
   // Work out the screenshot plan up front so progress is a real fraction and
   // any trimming can be stated on the last page instead of passing unnoticed.
-  let budget = MAX_TOTAL_SCREENSHOTS;
+  let budget = maxTotal;
   const plan = new Map();
   let plannedTotal = 0;
   let skippedTotal = 0;
   for (const s of sessions) {
     const all = Array.isArray(s.screenshots) ? s.screenshots : [];
-    const take = Math.max(0, Math.min(MAX_SCREENSHOTS_PER_SESSION, budget, all.length));
+    const take = Math.max(0, Math.min(maxPerSession, budget, all.length));
     budget -= take;
     plannedTotal += take;
     skippedTotal += all.length - take;
@@ -379,6 +392,9 @@ export async function exportWorkDiaryPdf({
     y += 24;
 
     for (const session of rows) {
+      // Checked per session, not per screenshot: a cancel should stop the run
+      // promptly without abandoning a half-drawn block mid-page.
+      if (shouldCancel?.()) throw new DOMException("Export cancelled", "AbortError");
       const worked = sessionWorkedSeconds(session);
       const idle = idleSecondsForSession(session);
       const take = plan.get(session.id) || 0;
@@ -478,14 +494,26 @@ export async function exportWorkDiaryPdf({
     doc.setTextColor(...FAINT);
     doc.text(`Page ${p} of ${pages}`, pageWidth - PAGE_MARGIN, pageHeight - PAGE_MARGIN + 8, { align: "right" });
     if (p === pages && skippedTotal > 0) {
+      // Only reachable with a finite cap — an uncapped run leaves skippedTotal
+      // at 0 — but the limits are still described defensively so a future caller
+      // can't print "limit Infinity/session" into a document sent to a client.
+      const limits = [
+        Number.isFinite(maxPerSession) ? `${maxPerSession}/session` : null,
+        Number.isFinite(maxTotal) ? `${maxTotal} total` : null,
+      ].filter(Boolean).join(", ");
       doc.text(
-        `${skippedTotal} screenshot${skippedTotal === 1 ? "" : "s"} omitted (limit ${MAX_SCREENSHOTS_PER_SESSION}/session, ${MAX_TOTAL_SCREENSHOTS} total)`,
+        maxTotal === 0
+          ? `Screenshots were excluded from this export (${skippedTotal} available).`
+          : `${skippedTotal} screenshot${skippedTotal === 1 ? "" : "s"} omitted${limits ? ` (limit ${limits})` : ""}`,
         PAGE_MARGIN,
         pageHeight - PAGE_MARGIN + 8
       );
     }
   }
 
+  const result = { screenshotsIncluded: plannedTotal, screenshotsOmitted: skippedTotal, pages };
+  if (output === "blob") return { ...result, blob: doc.output("blob") };
+
   doc.save(fileName);
-  return { screenshotsIncluded: plannedTotal, screenshotsOmitted: skippedTotal, pages };
+  return result;
 }

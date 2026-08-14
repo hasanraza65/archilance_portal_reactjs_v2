@@ -29,6 +29,42 @@ export async function fetchEmployeeWorkSessions(viewerRole, employeeId, { page =
   return res.data;
 }
 
+/**
+ * Every page of one employee's sessions for a date range, concatenated.
+ *
+ * fetchEmployeeWorkSessions returns ONE page, and the backend caps a page at
+ * 100 rows — which a single busy month can exceed, silently truncating the
+ * result. Anything summarising a whole range (the bulk exporter) has to walk
+ * the pages, so it lives here rather than being re-implemented per caller.
+ *
+ * `overall_total_time` and `windows_activity` are computed per page by the API,
+ * so the caller must aggregate across pages itself: sum each session's
+ * `raw_calculation.net_seconds` for worked time, and concatenate the activity
+ * rows before running them through aggregateWindowsActivity().
+ */
+export async function fetchAllEmployeeWorkSessions(
+  viewerRole,
+  employeeId,
+  params = {},
+  { maxPages = 40, shouldCancel } = {}
+) {
+  const first = await fetchEmployeeWorkSessions(viewerRole, employeeId, { ...params, page: 1 });
+  const sessions = [...(first?.data || [])];
+  const windowsActivity = [...(first?.windows_activity || [])];
+
+  const reportedLastPage = Number(first?.last_page) || 1;
+  const lastPage = Math.min(reportedLastPage, maxPages);
+
+  for (let page = 2; page <= lastPage; page += 1) {
+    if (shouldCancel?.()) break;
+    const next = await fetchEmployeeWorkSessions(viewerRole, employeeId, { ...params, page });
+    sessions.push(...(next?.data || []));
+    windowsActivity.push(...(next?.windows_activity || []));
+  }
+
+  return { sessions, windowsActivity, truncated: reportedLastPage > maxPages };
+}
+
 export async function createManualTime(role, { taskId, startDate, startTime, endDate, endTime, memo, proofPdf }) {
   const form = new FormData();
   form.append("task_id", taskId);

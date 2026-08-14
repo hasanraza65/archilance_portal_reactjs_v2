@@ -28,6 +28,8 @@ export const NAV_GROUPS = [
     label: "Time & Leave",
     items: [
       { title: "Work Diary", icon: "solar:clock-circle-bold-duotone", link: "/work-diary", roles: ["employee", "outsource", "manager", "supervisor", "executive"] },
+      // Admin/executive only: every employee's diary as one PDF each, zipped.
+      { title: "Bulk Diary Export", icon: "solar:download-minimalistic-bold", link: "/work-diary/bulk-export", roles: ["admin", "executive"] },
       // The tracker is what fills the work diary, so it belongs next to it.
       { title: "Desktop App", icon: "solar:monitor-bold-duotone", link: "/download", roles: ["admin", "employee", "outsource", "manager", "supervisor", "executive", "internee"] },
       {
